@@ -1,0 +1,264 @@
+---
+title: "Markdown Headers"
+author: "He Liu"
+date: "27/03/2022"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document: default
+---
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+```
+
+<!-- .Rmd files use  markdown, a text mark up language, to provide formating.--> 
+<!--Text include within these strange arrows are comments and will not show up when you knit-->
+
+**Front matter**
+This submission is my work alone and complies with the 30535 integrity policy.
+
+Add your initials to indicate your agreement: **__**
+
+Add your collaborators: **__**
+
+Late coins used this pset: X. Late coins left: X. 
+<!--Please update. You may use up to two for a given assignment. Note we added 5 late coins for a total of 9 for the quarter.)-->
+
+# Problems 3
+## 3.1 Choose a month
+<!--(Notice the use of two `##` followed by a space. )-->
+
+
+```{r}
+rm(list=ls())
+setwd("/Users/8q48/Documents/STU/GRAD/2022spring/DP-R/PS")
+data = bind_rows(read.csv("il_flights_2016_1.csv"), 
+                       read.csv("il_flights_2016_2.csv"),
+                       read.csv("il_flights_2016_3.csv"),
+                       read.csv("il_flights_2016_4.csv"),
+                       read.csv("il_flights_2016_5.csv"),
+                       read.csv("il_flights_2016_6.csv"),
+                       read.csv("il_flights_2016_7.csv"),
+                       read.csv("il_flights_2016_8.csv"),
+                       read.csv("il_flights_2016_9.csv"),
+                       read.csv("il_flights_2016_10.csv"),
+                       read.csv("il_flights_2016_11.csv"),
+                       read.csv("il_flights_2016_12.csv"))
+```
+
+```{r}
+flights_Chicago <- data %>%
+  filter( DEST == "ORD" | DEST == "MDW")
+```
+
+## 3.1.1
+When are average arrival delays into Chicago (measured using the arrival delay variable) the lowest? When are at least 80% of flights on-time?
+
+**Average arrival delay into Chicago in November is the lowest.**  
+**There is no time that is at least 80% of flights on-time.**
+
+```{r}
+flights_delay <- flights_Chicago %>%
+  group_by(MONTH) %>%
+  filter(!is.na(ARR_DELAY)) %>%
+  mutate(mean_arr_delay = mean(ARR_DELAY)) %>%
+  mutate(on_time = ifelse(ARR_DELAY <= 0, 1, 0)) %>%
+  mutate(proportion = sum(on_time, na.rm = TRUE)/n()) 
+
+  
+
+ggplot(data = flights_delay, aes(x = factor(MONTH))) +
+  geom_point(mapping = aes(y = mean_arr_delay)) +
+  geom_line(mapping = aes(y = proportion/0.08, group = 1)) + 
+  xlab("Month") +
+  scale_y_continuous(name = "Average arrival delay", 
+                     sec.axis = sec_axis(~.*0.08, breaks=seq(0.4, 0.8, 0.1), "Proportion")) 
+
+# Citation: https://www.jianshu.com/p/a67fd0527085
+
+```
+
+## 3.1.2
+When are flights to Chicago most common? 
+
+**Flights to Chicago in July are most common.**
+```{r}
+flights_Chicago %>%
+  group_by(MONTH) %>%
+  mutate(num_flights = n()) %>%
+  ggplot() + 
+  geom_line(mapping = aes(x = factor(MONTH), y = num_flights, group = 1)) +
+  xlab("Month") + 
+  ylab("Number of flights to Chicago")
+options(scipen = 200)
+
+max(flights_delay$num_flights)
+```
+
+## 3.1.3
+In your opinion, what month do you recommend they have the convention and why?
+
+**I would recommend October for the office to have the convention. Because the number of flights to Chicago in October and the on-time rate in October are both relative high compared with other months. Thus, attendees have more flight choices and more easily to arrive in Chicago on time in October.**
+
+
+## 3.1.3.a
+
+Make a “basic” plot which provides the minimal amount of information needed to support your written recommendation.
+```{r}
+flights_ontime <- flights_Chicago %>%
+  mutate(if_ontime = ifelse(ARR_DELAY <= 0, 1, 0)) %>%
+  group_by(MONTH) %>%
+  summarise(num_flights = n(),
+            ontime_rate = mean(if_ontime, na.rm = TRUE))
+
+flights_ontime %>%
+  ggplot(aes(x = factor(MONTH))) +
+  geom_col(aes(y = num_flights), fill = "grey") +
+  geom_line(aes(y = ontime_rate * 50000, group = 1), color = "black") +
+  scale_y_continuous(name = "Number of Flights", 
+                     limits = c(0, 40000), 
+                     sec.axis = sec_axis(~ . / 500, 
+                                         name = "On Time Rate",
+                                         breaks = seq(0, 100, 10), 
+                                         labels = paste(seq(0, 100, 10), "%", sep = ""))) +
+  xlab("Month")
+```
+
+## 3.1.3.b
+
+What are the sub-messages in the “sophisticated” plots that are not in the “basic” plot? If you could submit only one of the two plots to the mayor’s office, which would you submit and why?
+
+**The sub-messages are data tags of each month and a title articulating the purpose of plot.**  
+**I would submit the "sophisticated" one to the mayor's office. Because the sophisticated plot contains more information and makes the plot more readable. Viewers can easily get the conclusion what the plot-maker wants to convey.**
+```{r}
+library(formattable)
+flights_ontime %>%
+  ggplot(aes(x = factor(MONTH))) +
+  geom_col(aes(y = num_flights), fill = "#156077") +
+  geom_line(aes(y = ontime_rate * 50000, group = 1), color = "#f46f20") +
+  geom_point(aes(y = ontime_rate * 50000, group = 1), color = "#f46f20") +
+  scale_y_continuous(name = "Number of Flights", 
+                     limits = c(0, 40000), 
+                     sec.axis = sec_axis(~ . / 500, 
+                                         name = "On Time Rate",
+                                         breaks = seq(0, 100, 10), 
+                                         labels = paste(seq(0, 100, 10), "%", sep = ""))) +
+  xlab("Month") +
+  ggtitle("Amounts of Flights to Chicago and On Time Rate by Months") +
+  theme_bw() +
+  theme(panel.grid.major=element_line(colour=NA),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect(fill = "transparent",colour = NA),
+        plot.background = element_rect(fill = "transparent",colour = NA),
+        panel.grid.minor = element_blank()) +
+  geom_text(aes(y = num_flights, label =  num_flights), 
+            vjust = 3, size = 3, color = "white") +
+  geom_text(aes(y = ontime_rate * 50000, label =  percent(ontime_rate, 0)), 
+            vjust = -3, size = 3, color = "#f46f20")
+```
+
+
+## 3.1.3.c
+What are two other public datasets that would be useful in making a decision? Include links to the datasets and the names of the variables you would analyze.
+
+**The first useful public dataset would be a table contains summary characteristics of each domestic itinerary on the Origin and Destination Survey, including the reporting carrier, itinerary fare, originating airport. The link is https://www.transtats.bts.gov/Fields.asp?gnoyr_VQ=FKF.**  
+**I would analyze the variables of 'Quarter', 'Origin', 'ItinFare' to find out in which quarter the fare is the lowest.**
+
+**The second useful public dataset would be collected from January 2016 to December 2021, using historical weather reports that were collected from 2,071 airport-based weather stations across the nation. The link is https://www.kaggle.com/datasets/sobhanmoosavi/us-weather-events.**  
+**I would analyze the variables of 'AirportCode', 'Type', 'Severity' and 'StartTime(UTC)' to find out in which month the extreme weather events are the least.**
+
+
+## 3.2 Pick an airline
+
+Now that you’ve decided on a date, recommend an airline to take in order to arrive on time. Which plot do you prefer and why?
+
+**I would recommend airline WN because this airline has most common flights and the on-time rate is relative high.**   
+**I prefer the sophisticated plot because the difference between months in line plot is subtle and it is not so clear to judge which airline has a high on-time rate.  With the data tag, we can also calculate which airline's on-time flights are most common in sophisticated plot.**
+
+```{r}
+flights_ontime_airline <- flights_Chicago %>%
+  mutate(if_ontime = ifelse(ARR_DELAY <= 0, 1, 0)) %>%
+  group_by(OP_UNIQUE_CARRIER) %>%
+  summarise(num_flights = n(),
+            ontime_rate = mean(if_ontime, na.rm = TRUE))
+
+flights_ontime_airline %>%
+  ggplot(aes(x = OP_UNIQUE_CARRIER)) +
+  geom_col(aes(y = num_flights), fill = "gray") +
+  geom_line(aes(y = ontime_rate * 100000, group = 1), color = "black") +
+  scale_y_continuous(name = "Number of Flights", 
+                     limits = c(0, 100000), 
+                     sec.axis = sec_axis(~ . / 1000, 
+                                         name = "On Time Rate",
+                                         breaks = seq(0, 100, 10), 
+                                         labels = paste(seq(0, 100, 10), "%", sep = ""))) +
+  xlab("Airline")
+```
+
+```{r}
+flights_ontime_airline %>%
+  ggplot(aes(x = OP_UNIQUE_CARRIER)) +
+  geom_col(aes(y = num_flights), fill = "#156077") +
+  geom_line(aes(y = ontime_rate * 100000, group = 1), color = "#f46f20") +
+  geom_point(aes(y = ontime_rate * 100000, group = 1), color = "#f46f20") +
+  scale_y_continuous(name = "Number of Flights", 
+                     limits = c(0, 100000), 
+                     sec.axis = sec_axis(~ . / 1000, 
+                                         name = "On Time Rate",
+                                         breaks = seq(0, 100, 10), 
+                                         labels = paste(seq(0, 100, 10), "%", sep = ""))) +
+  xlab("Airline") +
+  ggtitle("Amounts of Flights to Chicago and On Time Rate by Airline") +
+  theme_bw() +
+  theme(panel.grid.major=element_line(colour=NA),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect(fill = "transparent",colour = NA),
+        plot.background = element_rect(fill = "transparent",colour = NA),
+        panel.grid.minor = element_blank()) +
+  geom_text(aes(y = num_flights, label =  num_flights), 
+            vjust = -1, size = 3, color = "#156077") +
+  geom_text(aes(y = ontime_rate * 100000, label =  percent(ontime_rate, 0)), 
+            vjust = -4, size = 3, color = "#f46f20")
+```
+## 3.3 Reconsider the date
+
+Does that change your recommendation of when to host the convention? Make a plot that
+supports your new recommendation and shows why it is superior to your old recommendation.
+
+**Answer: **I would change my recommendation in terms of time to February. Because we have learned that the most important member are in Greer, South Carolina. Now, after considering Greer as a key origin city, the amount of flights and the on-time rate in February are the greatest, which means the important members could be more possible to arrive in Chicago on time in February. It is superior to my old recommendation because it doesn't simply equally weight the importance of each origin city, but focus on the city where the most important members come from.
+```{r}
+flights_Chicago_greer <- flights_Chicago %>%
+  filter(ORIGIN_CITY_NAME == "Greer, SC")
+
+flights_ontime_month_greer <- flights_Chicago_greer %>%
+  mutate(if_ontime = ifelse(ARR_DELAY <= 0, 1, 0)) %>%
+  group_by(MONTH) %>%
+  summarise(num_flights = n(),
+            ontime_rate = mean(if_ontime, na.rm = TRUE))
+
+flights_ontime_month_greer %>%
+  ggplot(aes(x = factor(MONTH))) +
+  geom_col(aes(y = num_flights), fill = "#156077") +
+  geom_line(aes(y = ontime_rate * 300, group = 1), color = "#f46f20") +
+  geom_point(aes(y = ontime_rate * 300, group = 1), color = "#f46f20") +
+  scale_y_continuous(name = "Number of Flights", 
+                     limits = c(0, 300), 
+                     sec.axis = sec_axis(~ . / 3, 
+                                         name = "On Time Rate",
+                                         breaks = seq(0, 100, 10), 
+                                         labels = paste(seq(0, 100, 10), "%", sep = ""))) +
+  xlab("Month") +
+  ggtitle("Amounts of Flights from Greer to Chicago & On Time Rate by Months") +
+  theme_bw() +
+  theme(panel.grid.major=element_line(colour=NA),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect(fill = "transparent",colour = NA),
+        plot.background = element_rect(fill = "transparent",colour = NA),
+        panel.grid.minor = element_blank()) +
+  geom_text(aes(y = num_flights, label =  num_flights), 
+            vjust = -1, size = 3, color = "#156077") +
+  geom_text(aes(y = ontime_rate * 300, label =  percent(ontime_rate, 0)), 
+            vjust = -3, size = 3, color = "#f46f20")
+```
+

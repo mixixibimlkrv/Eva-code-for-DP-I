@@ -1,0 +1,505 @@
+---
+title: "applied_ps_4"
+author: "Eva Liu and Kevin Samsi"
+date: "27/03/2022"
+output:
+  pdf_document: default
+  html_document:
+    number_sections: yes
+---
+Due Saturday May 28 9AM Central.
+For graduating students due Thursday May 26 9 AM Central
+This submission is our work alone and complies with the 30535 integrity policy.
+Add your initials to indicate your agreement: **EL** & **KS**
+Add names of anyone you discussed this problem set with: Simeon Bintang, Ellie Chen, Longyu Pan, Irene Qi, and Ahmad Adi
+Late coins used this pset: 1 for each. Late coins left: 1 for each.
+
+
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(jsonlite)
+library(testthat)
+library(lubridate)
+library(dplyr)
+library(stringr)
+library(ggmap)
+setwd("~/GitHub/applied-ps-4-kevin-eva")
+
+```
+
+
+
+# 1 Prelim questions (5 points)
+## 1.1 Have you deleted any Waze data that you downloaded onto your computer (answer this at the end of the problem set in the affirmative)?
+**Answer:** Yes
+
+## 1.2. As is the case with any data set, Waze has to make decisions about what data to store and how to measure it. Review the data documentation and the rest of the problem set. Propose a variable that Waze could feasibly track that is not available now or feasible and better way a to measure a variable currently in the dataset. Support your proposal with reasoning.
+**Answer:** During winter a data about thickness of the snow and warning about the existence of a black ice could be beneficial for drivers. Thickness of the snow could be estimated by snow falls from the weather channel and existence of black ice could be reported by chicago officials that are responsible for cleaning up the road from snow. It could be beneficial especially the warning with the existence of black ice so drivers could be more aware and careful while driving at that location.
+
+## 1.3. As is the case with most consumer data, Waze users are self-selecting. Write a few detailed sentences about how you think self-selection influences what data is present.
+**Answer:** When googling about the meaning of self-selecting data, what comes up is self-selecting bias that arises from people selecting themselves into some group that can cause biase when sample are taken. Possible self-selection in Waze users is probably the consent of the data of waze users that they allow to be published and process by waze. One possible reason that it will influence the data that is presented in waze: if most of the users decided not to be tracked in the application, waze would not be able to inform other users of the existence of traffic jam spots because most people do not give consent about their data to waze.
+
+# 2 Obtaining data
+
+# 3 Data exploration in JSON (5 points)
+The primary way that Waze is presented to users is through a live feed. Waze finds it convenient to store this in a file format called JSON. Click the link here to see what the current Waze feed looks like for Chicago. You can download the JSON file using ‘Ctrl + S’ in your web browser.
+
+## 3.1. How is JSON different from other file formats you have worked with previously such as CSV? Answer this by a combination of inspection of the link above and reading about JSON.
+**Answer:** Based on inspection between waze's JSON file compare to previous problem set data of parking tickets I found that the csv data easier to read and understand. As the csv file is in similar format with Microsoft Excel, separation between columns and rows are neat and clear. Waze's JSON file is unclear and it is not possible to skim through and understand the data. Based on reading, JavaScript Object Notation or JSON is a light-weight data format and used in conjunction with APIs and data configuration. JSON file can be larger than csv, they are less secure, can be integreated with APIs easily and the data type uses Javascript data types. Additionally, JSON can support hierarchical and relational data.
+
+Reference: https://coresignal.com/blog/json-vs-csv/#:~:text=json.,Separated%20Values%20with%20the%20extension%20.
+
+## 3.2. Use the package jsonlite to convert the JSON feed to a list. Why can’t you convert it to a tibble? (Hint: Look at the columns mentioned in the error message.)
+**Answer:** Conversion to a tibble is not successful because the columns do not have compatible sizes. To convert them into a tibble successfully you must have the same observations in each column.
+
+```{r, error = TRUE}
+json <- fromJSON("~/GitHub/applied-ps-4-kevin-eva/JSON_file.json")
+
+glimpse(json, max.level = 1)
+
+json_tibble <- as.tibble(json)
+```
+
+## 3.3. What is the length of the list? What are the names of each item in the list? Which list items can be stored as an atomic vector? For these, what are the data types? Which list items can themselves be tibbles
+**Answer:** There are 7 elements in the list. The 7 elements and their data types in parentheses are: alerts (list), endTimeMillis (double), irregularities (list), startTimeMillis (double), startTime (character), endTime (character), and jams (list). Items that can be stored as an atomic vector are: endTimeMillis, startTimeMillis, startTime, and endTime because they have double and character data type. While item that can themselves be tibble is only alerts, because jams have two columns that contains a list (line and segments) and irregularities have two columns that contains a list (line and alerts) that will be impossible to be converted to tibbles.
+
+
+# 4 Data cleaning (10 points)
+Fortunately, Waze’s data-sharing program regularly takes snapshots of what is in the feed and keeps them in an archive. You will be working with a subset of this archive.
+
+## 4.1. Load the data. If you are using ‘all_alerts_all_cols.rds’ check that you have 982,147 rows. If you successfully loaded all_alerts from SQL inquery, you can skip this step.
+```{r}
+all_alerts <- readRDS("~/GitHub/applied-ps-4-kevin-eva/all_alerts_all_cols.rds")
+
+test_that(
+  "There are 982,147 rows in waze dataset",
+  expect_equal(nrow(all_alerts), 982147)
+)
+```
+
+## 4.2. What dates do the data cover? What city or cities does the data cover?
+**Answer:** The date cover dates between March 2, 2021 and May 5, 2022. The city of Chicago is the only city that the data cover.
+```{r}
+all_alerts$ts <- lubridate::ymd_hms(all_alerts$ts)
+
+range(as_datetime(all_alerts$ts))
+
+all_alerts %>%
+  group_by(city) %>%
+  summarise(n = n())
+
+```
+
+## 4.3. Latitude and longitude are both inside the geo column. Create separate numeric columns for latitude and longitude.
+```{r}
+
+all_alerts <- all_alerts %>%
+  separate(geo, c("longitude", "latitude"), sep = " ") %>%
+  mutate(longitude = as.numeric(gsub(longitude,
+                                    pattern = "Point\\(", 
+                                    replacement = "", 
+                                    ignore.case = TRUE))) %>%
+  mutate(latitude = as.numeric(gsub(latitude, 
+                                     pattern = "\\)", replacement = "",
+                                     ignore.case = TRUE)))
+```
+
+## 4.4. Plot the number of alerts by hour of day. When are alerts most common?  
+**Answer:** The highest number of alerts is at 9 pm. While the top 5 most common alerts are between 7 pm - 11 pm.
+```{r}
+all_alerts <- all_alerts %>%
+  mutate(date_time = ts) %>%
+  separate(ts, c("date", "time"), sep = " ") %>%
+  separate(date, c("year", "month", "day"), sep = "-") %>%
+  separate(time, c("hour", "minute", "second"), sep = ":")
+
+all_alerts %>%
+  select(hour) %>%
+  group_by(hour) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+
+all_alerts %>%
+  select(hour) %>%
+  group_by(hour) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n)) %>%
+  ggplot(aes(x = reorder(hour, -n), y = n)) +
+  geom_col(position = "identity") +
+  labs(
+    x = "Hour of the day", y = "Amount of Alerts",
+    title = "Number of Alerts by Hour of the day"
+  ) +
+   theme(plot.title = element_text(hjust = 0.5))  
+```
+
+## 4.5. What time zone are the alerts in by default? Add a column with alerts recorded to central time and a second column with alerts on central time rounded to the nearest 5 minutes. (Several functions inside the lubridate package/Lecture 8 will be helpful here)
+**Answer:** the time zone of the alerts are in UTC by default. 
+```{r}
+range(as_datetime(all_alerts$date_time))
+
+all_alerts <- all_alerts %>%
+  mutate(central_time = with_tz(date_time, tzone = "America/Chicago"))
+
+all_alerts <- all_alerts %>%
+  mutate(central_time_rounded = 
+  lubridate::round_date(all_alerts$central_time, "5 minutes"))
+
+#Reference: https://stackoverflow.com/questions/10862056/rounding-time-to-nearest-quarter-hour
+```
+
+
+# 5 Waze vision zero (20 points)
+Read up on the ggmap package, which will be useful for doing these problems. Particularly, get to know the get_stamenmap() function. If you find yourself downloading 1000s of tiles, check your settings. You are welcome to try using google basemaps as well; while free for new users, this will require a credit card. The version of ggmap on CRAN is out of date, instead find and install it from github.
+
+A prior guest speaker to the class talked about the Vision Zero project. The set of questions in this part of the problem set is connected to that guest lecture. However, you can just read up a bit about Vision Zero in lieu of the guest lecture.
+
+## 5.1. Look at Vision Zero Neighborhood High Crash Corridor #7 N. Western Ave, from here. High Crash Corridors are matched to streets on page 9. Plot the accidents in this corridor on a map.
+```{r}
+
+# Registering google basemaps
+register_google(key = "AIzaSyBc6kBArGovh8opeMs7DgfzqSNAziwX9sQ")
+
+High_Crash_Corridor_Western_Ave <- all_alerts %>%
+  filter(type == "ACCIDENT") %>%
+  filter(grepl('N Western', street))
+
+map <- get_map(c(-87.688336, 41.949884), zoom = 12)
+str(map)
+
+ggmap(map) +
+  geom_point(data = High_Crash_Corridor_Western_Ave, aes(x = longitude, y = latitude), color = I("red"))
+
+#Reference: 
+#https://stackoverflow.com/questions/51107901/how-do-i-filter-a-range-of-numbers-in-r
+#https://www.rdocumentation.org/packages/ggmap/versions/3.0.0/topics/get_map
+#https://www.dominodatalab.com/data-science-dictionary/ggmap#:~:text=ggmap%20is%20an%20R%20package,tools%20for%20spatial%20data%20analysis.
+#https://www.statology.org/filter-rows-that-contain-string-dplyr/
+#https://www.neonscience.org/resources/learning-hub/tutorials/grepl-filter-piping-dplyr-r
+#https://github.com/dkahle/ggmap/issues/281
+#https://stackoverflow.com/questions/59965105/combining-ggmap-with-ggplot-to-create-animation-in-r
+#https://stackoverflow.com/questions/53179966/how-to-plot-locationslongitudealtitude-on-map-in-r
+#https://www.findlatitudeandlongitude.com/l/6544+North+Western+Avenue%2C+Chicago%2C+IL+60645%2C+USA/2253423/
+```
+
+## 5.2. Around what intersection are accidents most common? Use Google Street View to look at this intersection. What do you notice?
+**Answer:** Accidents are most common at the intersection between W Logan Blvd and N. Western Ave as shown in this plot. When looking at Google Street View this street is pretty hectic and a lot of cars from highway 90 from Kennedy Western Rd went through this intersection. In addition when looking at the shape of the intersection it is not a typical intersection like the plus sign +, one of the way from the right side sort of bend to the right angle. Furthermore, the location of the intersection that were located below the highway also made it tricky.
+```{r}
+High_Crash_Corridor_Western_Ave <- all_alerts %>%
+  filter(type == "ACCIDENT") %>%
+  filter(grepl('N Western', street))
+
+#Trial and error to adjust latitude to see the most accidents reports of intersection location
+map <- get_map(c(-87.688336, 41.930), zoom = 17)
+str(map)
+
+ggmap(map) +
+  geom_point(data = High_Crash_Corridor_Western_Ave, 
+             aes(x = longitude, y = latitude), 
+             color = I("red"))
+
+```
+
+# 6 Waze single event (25 points)
+
+## 6.1. Inspect the event with uuid a42bc14b-e080-4621-9221-29dd86e553ce.
+
+### 6.1.a. Define a bounding box around the event. Construct a data frame with all jams and accidents around the event. (Hint: a bounding box specifies the spatial limit of your map/location)
+I define a bounding box around the event by +/-0.3 longitude and latitude. It binds the section that is 24km from north to south and 33km from east to west around the event location.
+
+```{r}
+position_event <- all_alerts %>%
+  filter(uuid == "a42bc14b-e080-4621-9221-29dd86e553ce") %>%
+  select(latitude, longitude)
+
+all_alerts %>%
+  filter(uuid == "a42bc14b-e080-4621-9221-29dd86e553ce")
+```
+
+```{r}
+event_alerts <- all_alerts %>%
+  filter(
+    latitude < as.double(position_event[1]) + 0.3 &
+      latitude > as.double(position_event[1]) - 0.3,
+    longitude < as.double(position_event[2]) + 0.3 &
+      longitude > as.double(position_event[2]) - 0.3,
+    type %in% c("JAM", "ACCIDENT"),
+    ymd(date(central_time)) == "2021-12-05"
+  )
+```
+
+### 6.1.b. What causes all these jams? Some googling might help.
+By googling, I find that a man was shot on Dec. 5 on DuSable Lake Shore Drive. This may cause many jams on that night.  
+Citation: https://chicago.suntimes.com/crime/2021/12/6/22820020/man-shot-lake-shore-drive
+
+### 6.1.c. Plot the number of jams 6AM-6PM CST.
+
+```{r}
+event_alerts %>%
+  mutate(hour_CT = hour(ymd_hms(event_alerts$central_time))) %>%
+  filter(type == "JAM") %>%
+  group_by(hour_CT) %>%
+  filter(5 < hour_CT & hour_CT < 19) %>%
+  count() %>%
+  ggplot(aes(x = hour_CT, y = n)) +
+  geom_col(stat = "identity") +
+  labs(
+    x = "Hour", y = "Number of Jams",
+    title = "The Number of Jams 6AM-6PM CST around the event"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+### 6.1.d. Next, propose a quantitative measure of traffic jam severity that combines the number of traffic JAM alerts with information in the subtype variable.
+I propose a quantitative measure of traffic jam severity that measure the severity by sum of the severity index indicated by `subtype` and by mean of the severity index.
+```{r}
+jam_from_event <- event_alerts %>%
+  filter(type == "JAM") %>%
+  mutate(hour_CT = hour(ymd_hms(central_time))) %>%
+  mutate(
+    subtype_split = sapply(strsplit(subtype, "_"), "[", 2),
+    subtype_score = case_when(
+      subtype_split == "STAND" ~ 3,
+      subtype_split == "HEAVY" ~ 2,
+      subtype_split == "MODERATE" ~ 1,
+      is.na(subtype_split) == TRUE ~ 0
+    )
+  ) %>%
+  group_by(hour_CT) %>%
+  summarise(severity_sum = sum(subtype_score),
+            severity_mean = mean(subtype_score))
+```
+
+### 6.1.e. Plot this measure from 6AM-6PM CST. Is there any information that is conveyed by your severity measure that was not captured by plotting the number of jams? If so, what is it?
+
+Yes. The severity measure (by sum) reveals that there is a slight drop between 11am-12pm which wasn't capture by plotting the number of jams. In the previous plot, number of jams increases from 10 to 15. 
+The severity measure (by mean) reveals a totally different pattern as the plot of number of jams. Jams between 10 to 18 may be frequent but not so severe. Jams between 6-10 may be less but seems more severe on average.
+
+```{r}
+jam_from_event %>%
+  filter(hour_CT > 5) %>%
+  filter(hour_CT < 19) %>%
+  ggplot(aes(x = hour_CT, y = severity_sum)) +
+  geom_col(stat = "identity") +
+  labs(
+    x = "Hour", y = "Severity of Jams",
+    title = "The Severity of Jams 6AM-6PM CST around the event (by sum)"
+    ) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+jam_from_event %>%
+  filter(5 < hour_CT & hour_CT < 19) %>%
+  ggplot(aes(x = hour_CT, y = severity_mean)) +
+  geom_col(stat = "identity") +
+  labs(
+    x = "Hour", y = "Severity of Jams",
+    title = "The Severity of Jams 6AM-6PM CST around the event (by mean)"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+# 7 Waze aggregate over multiple events (25 points)
+
+## 7.1. Pick one major accident. What is the uuid? Sample alerts from hour before the accident first appeared in the data and hour after the accident for a geographic box of 1 kilometer around the accident. Make a plot where the y-axis is the number of traffic jam alerts and the x-axis is the five-minute interval from an hour before the accident to an hour after the accident.
+**Answer:** 
+I pick the major accident with uuid `9d2b51fb-29b4-4c6c-bd94-be5e2ea4e85b`.  
+
+I first find the street and hour with most accidents. Then filter the data to select the highest confidence accident on that street and hour. The first one in my results is  `9d2b51fb-29b4-4c6c-bd94-be5e2ea4e85b`.
+
+From a website that taught me about the formula to convert the km to longitude/latitude, I figure out the geographic box of 1 kilometer around the accident is from -87.76551 to -87.74803 and from 41.86714 to 41.87618. 
+
+Citation: https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
+```{r}
+all_alerts %>%
+  filter(subtype == "ACCIDENT_MAJOR") %>%
+  group_by(street, hour) %>%
+  count() %>%
+  arrange(desc(n))
+
+all_alerts %>%
+  filter(street == "I-290 W" & hour == 19) %>%
+  filter(subtype == "ACCIDENT_MAJOR") %>%
+  arrange(desc(confidence))
+```
+
+```{r}
+sample_alerts <- all_alerts %>%
+  filter(latitude < 42.061 & latitude > 41.68232 &
+    longitude < -86.98991 & longitude > -88.52363) %>%
+  filter(
+    central_time > "2021-05-02 13:34:56	",
+    central_time < "2021-05-02 15:34:56	"
+  )
+
+sample_alerts %>%
+  count(central_time_rounded) %>%
+  ggplot(aes(x = central_time_rounded, y = n)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Alerts Within an Hour around Major Crash",
+    x = "Time",
+    y = "Alert Count"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## 7.2. Building on your work for the prior question, write a function that takes as its arguments a data frame, a uuid, and a geographic buffer distance. The function should return a data frame with the number of alerts in each five-minute interval within in the geographic buffer from one hour before to one hour after the accident. Note that you want the time variable to be measured relative to when the accident occurred (see lecture 8).
+```{r}
+alert_num <- function(df, UUID, distance) {
+  df_uuid <- df %>%
+    filter(uuid == UUID)
+
+  accidt_time <- df_uuid$date_time
+
+  alert_buffer <- df %>%
+    filter(
+      date_time > accidt_time - 3600,
+      date_time < accidt_time + 3600
+    )
+
+  accidt_lat <- df$latitude[df$uuid == UUID]
+  accidt_long <- df$longitude[df$uuid == UUID]
+
+  alert_buffer <- alert_buffer %>%
+    filter(latitude < (accidt_lat + (distance * 0.5) * (1 / 110.574)) &
+      latitude > (accidt_lat - (distance * 0.5) *
+        (accidt_lat * (1 / 110.574))) &
+      longitude < (accidt_long + (distance * 0.5) *
+        (accidt_long * (1 / 111.320 * cos(accidt_lat)))) &
+      longitude > (accidt_long - (distance * 0.5) *
+        (accidt_long * (1 / 111.320 * cos(accidt_lat))))) %>%
+    mutate(
+      accidt_time = round_date(accidt_time, "5 minutes"),
+      time_interval = difftime(central_time_rounded, accidt_time),
+      time_interval = minute(seconds_to_period(time_interval))
+    ) %>%
+    group_by(time_interval, type) %>%
+    count(time_interval)
+
+  alert_buffer
+}
+```
+
+## 7.3. Try your function on a single accident to make sure your code is working.
+```{r}
+alert_num(all_alerts, "9d2b51fb-29b4-4c6c-bd94-be5e2ea4e85b", 1)
+```
+
+## 7.4. Make a data frame with every major accident in June 2021. Feed each row of this data frame to your function. Use one of the functions you learned in Chapter 21 such that the output is a single data frame. It will take a few minutes to run this code.
+```{r}
+june_alerts <- all_alerts %>%
+  filter(central_time > as_datetime("2021-06-01 00:00:01",
+    tz = "America/Chicago"
+  ) &
+    central_time < as_datetime("2021-06-30 11:59:59",
+      tz = "America/Chicago"
+    )) %>%
+  filter(subtype == "ACCIDENT_MAJOR")
+
+june_alerts_num <- map_dfr(june_alerts$uuid, alert_num, df = all_alerts, distance = 1)
+```
+
+##7.5. Plot the total number of jam alerts around major accidents. To be clear, correct answer here is a single plot that summarizes jams across major accidents, not one plot for each accident.
+```{r}
+june_jams_accidents <- june_alerts_num %>%
+  filter(type == "JAM") %>%
+  group_by(time_interval) %>%
+  summarise(count = sum(n))
+
+june_jams_accidents %>%
+  ggplot(aes(x = time_interval, y = count)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Total Number of JAM around Major Accidents") +
+  xlab("Time Difference") +
+  ylab("Total Number of JAM") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## 7.6. Are jams causing accidents or are accidents causing jams?
+I would say accidents are causing jams because at the time the accident happened (when time difference = 0), jams significantly increased. And after the accident, the number of jams dropped.  
+We cannot say that jams are causing accidents because there is no significant difference between the number of jams happened before and after the accident. If jams are causing accidents, the jams before the accident would be more than after it.
+
+## 7.7. Repeat the prior two steps for minor accidents. Construct a plot with a line for the number of jam alerts for major accidents and another line for minor accidents. Is the increase in jams for major accidents larger in percent terms than the increase for minor accidents? How much is the difference? Annotate your plot with the answer.
+
+**Answer:** No. The increase in jams for major accidents is not larger than the increase for minor accidents in percent terms. The increase in jams for major accidents is 91.92% while the increase in jams for minor accidents is 93.37%. The difference is -1.45% (91.92% - 93.37%).
+
+```{r}
+june_alerts_minor <- all_alerts %>%
+  filter(central_time > as_datetime("2021-06-01 00:00:01",
+    tz = "America/Chicago"
+  ) &
+    central_time < as_datetime("2021-06-30 11:59:59",
+      tz = "America/Chicago"
+    )) %>%
+  filter(subtype == "ACCIDENT_MINOR")
+
+june_minor_num <- map_dfr(june_alerts_minor$uuid, alert_num, df = all_alerts, distance = 1)
+```
+
+```{r}
+june_minor_plot <-
+  june_minor_num %>%
+  filter(type == "JAM") %>%
+  group_by(time_interval) %>%
+  summarise(count = sum(n))
+
+june_minor_plot %>%
+  ggplot(aes(x = time_interval, y = count)) +
+  geom_line() +
+  xlab("Time Difference") +
+  ylab("Total Number of JAM") +
+  ggtitle("Total Number of JAM around Minor Accidents") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+* Increase in jams for minor accidents in percent term is 93.37%.
+```{r}
+(june_minor_plot$count[june_minor_plot$time_interval == 0] - june_minor_plot$count[june_minor_plot$time_interval == -5]) / june_minor_plot$count[june_minor_plot$time_interval == -5]
+```
+
+* Increase in jams for major accidents in percent term is 91.92%.
+```{r}
+(june_jams_accidents$count[june_jams_accidents$time_interval == 0] - june_jams_accidents$count[june_jams_accidents$time_interval == -5]) / june_jams_accidents$count[june_jams_accidents$time_interval == -5]
+```
+
+```{r}
+ggplot() +
+  geom_line(
+    data = june_minor_plot,
+    aes(
+      x = time_interval,
+      y = count,
+      color = "Minor Accidents"
+    )
+  ) +
+  geom_line(
+    data = june_jams_accidents,
+    aes(
+      x = time_interval,
+      y = count,
+      color = "Major Accidents"
+    )
+  ) +
+  annotate("text",
+    x = 18, y = 7300,
+    label = "93.37% increase",
+    color = "black"
+  ) +
+  annotate("text",
+    x = 18, y = 3700,
+    label = "91.92% increase",
+    color = "black"
+  ) +
+  geom_point(aes(x = 0, y = 7841)) +
+  geom_point(aes(x = 0, y = 4677)) +
+  xlab("Time Difference") +
+  ylab("Number of JAM Alerts") +
+  labs(title = "Difference in number of JAM alerts for major and minor accidents") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_classic()
+```

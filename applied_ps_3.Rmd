@@ -1,0 +1,264 @@
+---
+title: "applied_ps_3"
+author: "Kevin Samsi, He Liu"
+date: "09/05/2022"
+output:
+  pdf_document: default
+  html_document:
+    number_sections: yes
+---
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(testthat)
+library(fs)
+library(rgdal)
+library(tidycensus)
+library(lubridate)
+```
+
+**Front matter**
+This submission is my work alone and complies with the 30535 integrity policy.
+
+Add your initials to indicate your agreement: **H.L.** & **K.S.**
+
+Add names of anyone you discussed this problem set with: **Kevin Samsi**
+
+Late coins used this pset: 0. Late coins left: 4. 
+
+```{r}
+setwd("/Users/8q48/Documents/GitHub/applied-ps-3-eva-kevin")
+```
+
+
+# 2 Read in one percent sample
+
+## 2.1
+
+It takes 1.503769 seconds to read in this file.
+
+```{r}
+start_time <- Sys.time()
+tickets_1pct <- read_csv("parking_tickets_one_percent-3.csv")
+end_time <- Sys.time()
+
+runningtime <- end_time - start_time
+runningtime
+
+# Citation: https://www.r-bloggers.com/2017/05/5-ways-to-measure-running-time-of-r-code/
+```
+
+```{r}
+test_that(
+  "There are 287458 rows in parktickets file",
+  expect_equal(nrow(tickets_1pct), 287458)
+)
+```
+
+## 2.2
+
+80 * 100 = 8000 MB  
+Because the one percent sample is 80 MB, we would predict the size of the full data set is 8000 MB.
+
+```{r}
+file_size("parking_tickets_one_percent-3.csv")
+
+# Citation: https://stackoverflow.com/questions/30580798/how-to-check-file-size-before-opening
+```
+
+## 2.3
+
+The rows are ordered by the first column in the dataset, which is called "...1".
+
+## 2.4
+
+There are 97 NAs in `license_plate_state`, 2054 NAs in `license_plate_type`, 54115 NAs in `zipcode`, 29 NAs in `unit`, 84068 NAs in `notice_level` and 259899 NAs in `hearing_disposition`. There is no NA in other columns.
+
+```{r}
+colSums(is.na(tickets_1pct))
+
+# Citation: https://stackoverflow.com/questions/26273663/r-how-to-total-the-number-of-na-in-each-col-of-data-frame
+```
+
+## 2.5
+* There are more missing values in `notice_level` because the blank field means no notice was sent.  
+* There are more missing values in `zipcode` because the ZIP code is associated with the vehicle registration. If the car is not registered, tben the value is NA for that car.  
+* There are more missing values in `hearing_disposition` because if the ticket was not contested this field is blank which shows in NA.
+
+
+# 3 Cleaning the data and benchmarking
+
+## 3.1
+
+* 22364 tickets were issued in 2017.  
+22364 * 100 = 2,236,400  
+It implies that 2,236,400 tickets were issued in 2017 in full data.  
+* According to the ProPublica article, tickets issued annually were in ranges between 200,000 and 250,000 from 2007 to 2016.  
+I think there is a meaningful difference because it is a ten times difference. It may because some dramatic changes happened during 2017 and the  intensity of punishment increased.
+```{r}
+tickets_1pct %>%
+  separate(issue_date, c("date", "time"), sep = " ") %>%
+  separate(date, c("year", "month", "day"), sep = "-") %>%
+  filter(year == 2017) %>%
+  count()
+```
+
+## 3.2
+
+```{r}
+tickets_1pct %>%
+  group_by(violation_description) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n)) %>%
+  head(20) %>%
+  mutate(violation_type = fct_reorder(violation_description, n)) %>%
+  ggplot(aes(x = violation_type, y = n)) +
+  geom_col(position = "identity") +
+  theme(
+    axis.text.y = element_text(size = 5.5)
+  ) +
+  coord_flip() +
+  labs(
+    x = "Frequency", y = "Violation type",
+    title = "Top 20 most frequent violation types"
+  )
+
+# Citation: https://blog.51cto.com/matrix6ro/1793431
+```
+
+
+# 4 joins – unit
+
+## 4.1
+
+There are 29 missing values in unit.
+```{r}
+tickets_1pct %>%
+  filter(is.na(unit))
+```
+
+## 4.2
+
+There are 385 units in unit_key.csv either by canvas table or table for WBEZ.
+
+```{r}
+unit_key <- read_csv("unit_key-1.csv", skip = 2) %>%
+  select(, -5)
+names(unit_key) <- c(
+  "Reporting District_canvas", "Department Name_canvas",
+  "Department Description_canvas", "Department Category_canvas",
+  "Reporting District_WBEZ", "Department Category_WBEZ"
+)
+
+length(unique(unit_key$`Reporting District_canvas`))
+length(unique(unit_key$`Reporting District_canvas`))
+```
+
+## 4.3
+
+* 129 rows in the tickets data have a match in the unit table.  
+256 rows are unmatched.
+* 287458 rows in the unit data have a match in the tickets table.  
+0 rows are unmatched.
+```{r}
+tickets_1pct <- tickets_1pct %>% mutate(unit_chr = as.character(unit))
+unit_match <- unit_key %>%
+  semi_join(tickets_1pct, c("Reporting District_canvas" = "unit_chr"))
+unit_unmatch <- unit_key %>%
+  anti_join(tickets_1pct, c("Reporting District_canvas" = "unit_chr"))
+
+t1pct_match <- tickets_1pct %>%
+  semi_join(unit_key, c("unit_chr" = "Reporting District_canvas"))
+t1pct_unmatch <- tickets_1pct %>%
+  anti_join(unit_key, c("unit_chr" = "Reporting District_canvas"))
+```
+
+## 4.4
+Department of Finance issues more tickets.  
+Department of Finance issues 143909 tickets and Chicago Police issues 127079 tickets.
+```{r}
+tickets_1pct %>%
+  count(unit_description == "DOF")
+tickets_1pct %>%
+  count(unit_description == "CPD" | unit_description == "CPD-Airport" |
+    unit_description == "CPD-Other")
+```
+
+
+# 5 Joins – ZIP code
+
+## 5.1
+
+```{r}
+CENSUS_KEY <- Sys.getenv("CENSUS_API_KEY")
+
+chicago_zip <- get_acs(
+  geography = "zcta",
+  variables = c(
+    population = "B01003_001",
+    blackshare = "B02001_003",
+    medincome = "B19013_001"
+  ),
+  state = "IL",
+  year = 2014
+)
+
+chicago_zip <- chicago_zip %>%
+  pivot_wider(names_from = "variable", values_from = c("estimate", "moe"))
+
+```
+
+## 5.2
+```{r}
+zipcode <- read_csv("chi_zips.csv") %>%
+  mutate(zip = as.character(ZIP))
+
+tickets_1pct_unit_key <- tickets_1pct %>%
+  mutate(zipcode = substr(zipcode, 1, 5)) %>%
+  semi_join(zipcode, c("zipcode" = "zip")) %>%
+  left_join(chicago_zip, c("zipcode" = "GEOID"))
+```
+
+## 5.3
+
+The three neighborhoods with the most unpaid tickets are Loop(60604), Englewood(60621) and Austin(60644).
+
+```{r}
+tickets_unpaid <- tickets_1pct_unit_key %>%
+  group_by(zipcode) %>%
+  mutate(paid = if_else(ticket_queue == "Paid", 0, 1)) %>%
+  summarise(unpaid_rate = sum(paid)/mean(estimate_population)) %>%
+  arrange(desc(unpaid_rate)) %>%
+  mutate(zip_type = fct_reorder(zipcode, unpaid_rate)) %>%
+  filter(!is.na(unpaid_rate))
+
+tickets_unpaid %>% head(3)
+```
+
+## 5.4
+```{r}
+tickets_unpaid %>%
+  filter(!is.na(unpaid_rate)) %>%
+  left_join(chicago_zip, c("zipcode" = "GEOID"))
+```
+
+```{r}
+map <- get_acs(
+  geography = "zcta",
+  variables = c(population = "B01003_001"),
+  state = "IL",
+  year = 2014,
+  geometry = TRUE
+) %>%
+  right_join(tickets_unpaid, c("GEOID" = "zipcode"))
+```
+```{r,fig.height = 3}
+map %>%
+  ggplot(aes(fill = unpaid_rate)) +
+  geom_sf() +
+  labs(
+    title = "Number of Unpaid Tickets per Resident by ZIP",
+    fill = "Unpaid Rate of Tickets"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+

@@ -1,0 +1,608 @@
+---
+title: "skills_ps_5"
+author: "He Liu"
+date: "16/05/2022"
+output:
+  pdf_document: default
+  html_document:
+    number_sections: yes
+---
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(nycflights13)
+library(tibble)
+library(reprex)
+library(fs)
+library(purrr)
+```
+
+**Front matter**
+This submission is my work alone and complies with the 30535 integrity policy.
+
+Add your initials to indicate your agreement: **H.L.**
+
+Add your collaborators: **NA**
+
+Late coins used this pset: 2. Late coins left: 2. 
+<!--Please update. You may use up to two for a given assignment.)-->
+
+# 1 R4DS Chapter 13 Joins continued
+## 1.1 
+
+There are 2611500 rows.  
+It takes 0.29 seconds for the computer to do this join.
+```{r}
+start_time <- Sys.time()
+weather %>%
+  left_join(
+    flights[1:100, ],
+    c("year" = "year")
+  ) %>%
+  nrow()
+end_time <- Sys.time()
+
+runningtime <- end_time - start_time
+runningtime
+```
+
+
+## 1.2
+* **a.**  
+The merge is not fully precise and corresponding accordingly. There are four more specific variables needed to match in two datasets, including `month`, `day`, `hour` and `origin`. Without matching all mutual variables, the merge based on `year` is messy and wrong.
+
+* **b.**  
+There will be 26115 rows just as the number of rows in `weather`.  
+It will take less than 1 second to run this code.
+
+## 1.3
+A flight has a missing `tailnum` may because it didn't departure and has no flight record. Values in `dep_time` are all missing when `tailnum` values are missing. It indicates that the plane tail number of those flights are not recorded because they didn't depart.
+
+```{r}
+sum(is.na(flights$tailnum))
+flights_tail <- flights %>%
+  filter(is.na(tailnum))
+sum(is.na(flights_tail$dep_time))
+```
+
+## 1.4
+
+```{r}
+fl_wt_20130613 <- weather %>%
+  left_join(
+    flights,
+    c("origin" = "origin", "time_hour" = "time_hour", "year" = "year", 
+      "month" = "month", "day" = "day", "hour" = "hour")
+  ) %>%
+  mutate(ifdate = ifelse(year == 2013 & month == 6 & day == 13,
+    "June 13 2013",
+    "Normal Day"
+  )) %>%
+  group_by(origin, ifdate) %>%
+  mutate(mean_delay = mean(dep_delay, na.rm = TRUE))
+
+fl_wt_20130613 %>%
+  ggplot(aes(origin, mean_delay)) +
+  geom_col(position = "identity") +
+  facet_wrap(~ifdate) +
+  xlab("Origin") +
+  ylab("Average delays") +
+  labs(title = "More delays on June 13 2013 than other normal days") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+The delays on June 13, 2013 are significantly greater than the other normal days'.  
+According to the wikipedia, two derechos occurred across different areas of the Eastern United States on June 13, 2013. I think this severe weather make flights from NYC delay more severely.  
+
+Citation: https://en.wikipedia.org/wiki/June_12%E2%80%9313,_2013_derecho_series
+
+
+## 1.5
+* The result only keeps those values of dest in `flights` don't match values of faa in `airports`.
+Those flights destination may not be shown in FAA airport code.
+* The result is different because dest has many same values but values of faa in `airports` are identical. Only small part of faa is matched by dest in `flights`, while most of values of dest in `flights` are matched by the faa in `airports`.
+```{r}
+flights %>% anti_join(airports, by = c("dest" = "faa"))
+airports
+airports %>% anti_join(flights, by = c("faa" = "dest"))
+length(unique(airports$faa))
+```
+
+
+# 2 R4DS Chapter 16: `lubridate`
+
+## 2.1
+
+This does not fully hold. There are still 1205 rows that cannot match. It is because some flights actually depart on the next day relative to the scheduled departure time which cause `dep_time` smaller than `sched_dep_time`. This causes discrepancies when we count time differences. 
+```{r}
+flights_reformat <- flights %>%
+  filter(!is.na(dep_time), !is.na(arr_time)) %>%
+  mutate(dep_time = make_datetime(
+    year, month, day,
+    dep_time %/% 100, dep_time %% 100
+  )) %>%
+  mutate(
+    sched_dep_time =
+      make_datetime(
+        year, month, day,
+        sched_dep_time %/% 100, sched_dep_time %% 100
+      )
+  ) %>%
+  mutate(arr_time = make_datetime(
+    year, month, day,
+    arr_time %/% 100, arr_time %% 100
+  )) %>%
+  mutate(
+    sched_arr_time =
+      make_datetime(
+        year, month, day,
+        sched_arr_time %/% 100, sched_arr_time %% 100
+      )
+  ) %>%
+  select(origin, dest, month, day, ends_with("delay"), ends_with("time"))
+
+flights_reformat %>%
+  mutate(cal_dep_delay = difftime(dep_time, sched_dep_time, units = "mins")) %>%
+  mutate(check = ifelse(cal_dep_delay == dep_delay, 0, 1)) %>%
+  filter(check == 1)
+```
+
+
+## 2.2
+```{r}
+d1 <- "1213-Apr-03"
+parse_date_time(d1, "%HM-%m-%d")
+
+d2 <- "06-Jun-2017"
+dmy(d2)
+
+d3 <- "12/29/14" # Dec 29, 2014
+parse_date(d3, "%m/%d/%y")
+
+d4 <- "November 20, 1909"
+mdy(d4)
+
+d5 <- c("January 2 (2016)", "January 2 (2018)")
+mdy(d5)
+```
+
+## 2.3
+It doesn't show significant difference in distribution of flight times within a day among seasons after I normalized the data within groups. The winter is slightly higher before 18:00 and slightly lower in night. That may be because it gets dark early in winter.
+```{r}
+flights_reformat %>%
+  mutate(season = ifelse(dep_time >= ymd(20130320) & dep_time < ymd(20130620),
+    "Spring",
+    ifelse(dep_time >= ymd(20130620) & dep_time < ymd(20130922),
+      "Summer",
+      ifelse(dep_time >= ymd(20130922) & dep_time < ymd(20131221),
+        "Fall", "Winter"
+      )
+    )
+  )) %>%
+  filter(!is.na(dep_time)) %>%
+  mutate(dep_hour = hour(dep_time)) %>%
+  mutate(season = factor(season,
+    levels = c("Spring", "Summer", "Fall", "Winter")
+  )) %>%
+  ggplot(aes(dep_hour, color = season)) +
+  geom_density()
+```
+
+
+## 2.4
+The Saturday has the smallest probability of an arrival delay. This does not change if we only consider long delays.
+```{r}
+flights_reformat %>%
+  mutate(weekday = wday(dep_time, label = TRUE)) %>%
+  mutate(delay_span = ifelse(arr_delay > 120 & !is.na(arr_delay),
+    "long delay", "short delay"
+  )) %>%
+  mutate(if_arr_delay = ifelse(arr_delay > 0, 1, 0)) %>%
+  select(weekday, delay_span, if_arr_delay, arr_delay) %>%
+  group_by(weekday) %>%
+  arrange(weekday) %>%
+  ggplot(aes(x = weekday, y = if_arr_delay)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~delay_span) +
+  labs(title = "Probability of an arrival delay in different delay span")
+```
+
+## 2.5
+* Create a vector of dates giving the seventh day of every month in 2012 and show the output to show
+that it works.
+```{r}
+seventhday_in2012 <- years(2012) + months(c(1:12)) + days(7)
+seventhday_in2012
+```
+
+* Create a vector of dates giving the fifth day of every month in 2020 and show the output.
+```{r}
+fifthday_in2020 <- years(2020) + months(c(1:12)) + days(5)
+fifthday_in2020
+```
+
+
+# 3 R4DS 19: Functions
+
+## 3.1
+
+```{r}
+vect_to_str <- function(x, na.rm = FALSE) {
+  if (!is.vector(x)) {
+    stop("`x` must be a vector")
+  }
+  x <- toString(x)
+  x
+}
+```
+```{r}
+test1 <- c("a", "b")
+vect_to_str(test1)
+typeof(vect_to_str(test1))
+```
+```{r}
+test2 <- c("a")
+vect_to_str(test2)
+```
+```{r}
+test3 <- c("a", "b", "c")
+vect_to_str(test3)
+```
+
+## 3.2
+```{r}
+agecount <- function(x, na.rm = FALSE) {
+  trunc(as.numeric(as.duration(today() - ymd(x)), "years"), 0)
+}
+
+agecount("1999-06-15")
+
+# Citation: https://blog.csdn.net/lijinxiu123/article/details/53895424
+```
+
+## 3.3
+
+* 3.3.a
+Write a function to calculate the variance of a numeric vector.
+```{r}
+var_cal <- function(x, na.rm = FALSE) {
+  if (na.rm) {
+    x <- num[!is.na(x)]
+  }
+  x <- as.numeric(x)
+  m <- mean(x)
+  return(
+    sum((x - m)^2, na.rm = TRUE) / (length(x) - 1)
+  )
+}
+
+test_num <- c(1, 3, 9, 25, 100)
+
+var_cal(test_num)
+var(test_num)
+
+# Citation: https://stackoverflow.com/questions/61132506/calculate-variance-manually-in-r
+```
+
+* 3.3.b
+Write a function to calculate the skewness of a numeric vector.
+```{r}
+skew_cal <- function(x, na.rm = FALSE) {
+  if (na.rm) {
+    x <- x[!is.na(x)]
+  }
+  m <- mean(x)
+  n <- length(x)
+  var <- var_cal(x)
+  sum((x - m)^3) / (n - 2) / var^(3 / 2)
+}
+
+skew_cal(test_num)
+```
+
+* 3.3.c
+Calculate the mean and variance of all numeric columns in the diamond dataset.
+```{r}
+mean_diamonds <- diamonds %>%
+  summarize_if(is.numeric, mean, na.rm = TRUE) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "mean")
+
+var_diamonds <- diamonds %>%
+  summarize_if(is.numeric, var, na.rm = TRUE) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "variance")
+
+mean_variance_diamonds <- mean_diamonds %>%
+  inner_join(var_diamonds, by = "variable")
+
+mean_variance_diamonds
+```
+
+
+## 3.4
+
+f function is to check whether the length of string measured by prefix is equal to the length of prefix you input. Therefore, I change the function name to `check_string_prefix`.  
+g function is to get all the components in the vector except for the last one. Therefore, I change the function name to `cut_vector_tail`.
+```{r}
+check_string_prefix <- function(string, prefix) {
+  str_sub(string, 1, nchar(prefix)) == prefix
+}
+
+cut_vector_tail <- function(x) {
+  if (length(x) <= 1) {
+    return(NULL)
+  }
+  x[-length(x)]
+}
+```
+
+
+## 3.5
+
+```{r}
+greeting <- function(time = now()) {
+  hour <- hour(time)
+
+  output <- ifelse((5 < as.numeric(hour) & as.numeric(hour) < 12), "Good morning",
+    ifelse(12 <= as.numeric(hour) & as.numeric(hour) < 17, "Good afternoon", "Good evening")
+  )
+  output
+}
+
+greeting("2022-05-27 6:31:00")
+
+greeting("2022-05-27 16:31:00")
+
+greeting("2022-05-27 1:31:00")
+```
+
+# 4 R4DS Chapter 20: Vectors
+
+## 4.1
+
+The biggest difference among four functions is `as.integer()` change the data type from double to "integer", while other three `round()`, `trunc()` and `floor()` don't, keeping the data type as "double". 
+
+* `as.integer()` returns the biggest integer under the condition that it smaller than the input data.
+At the same time, it converts the type of data to "integer".
+
+* `round()` returns the integer that is closest to the input data.
+
+* `trunc()` and `floor()` both return the biggest integer under the condition that it smaller than the input data.
+
+```{r}
+num <- 2.678
+typeof(num)
+
+convert1 <- function(x, na.rm = FALSE) {
+  if (!is.double(x)) {
+    stop("`x` must be a double")
+  }
+  as.integer(x)
+}
+
+convert1(num)
+typeof(convert1(num))
+```
+```{r}
+convert2 <- function(x, na.rm = FALSE) {
+  if (!is.double(x)) {
+    stop("`x` must be a double")
+  }
+  round(x)
+}
+
+convert2(num)
+typeof(convert2(num))
+```
+```{r}
+convert3 <- function(x, na.rm = FALSE) {
+  if (!is.double(x)) {
+    stop("`x` must be a double")
+  }
+  trunc(x)
+}
+
+convert3(num)
+typeof(convert3(num))
+
+# Citation: https://blog.csdn.net/lijinxiu123/article/details/53895424
+```
+```{r}
+convert4 <- function(x, na.rm = FALSE) {
+  if (!is.double(x)) {
+    stop("`x` must be a double")
+  }
+  floor(x)
+}
+
+convert4(num)
+typeof(convert4(num))
+```
+
+
+## 4.2
+* 4.2.a
+I should use [.
+```{r}
+get_vector_tail <- function(x) {
+  if (!is.vector(x)) {
+    stop("`x` must be a vector")
+  }
+  as.vector(x[length(x)])
+}
+
+test <- c(2, 4, "abc", 5, 9)
+get_vector_tail(test)
+```
+
+* 4.2.b
+```{r}
+even_position <- function(x) {
+  if (!is.vector(x)) {
+    stop("`x` must be a vector")
+  }
+
+  pos <- c()
+
+  for (i in seq_along(x)) {
+    if (i %% 2 == 0) {
+      pos <- c(pos, i)
+    }
+  }
+  return(x[pos])
+}
+
+even_position(test)
+```
+
+## 4.3
+* 4.3.a
+```{r, fig.height = 3}
+knitr::include_graphics(
+  path = "/Users/8q48/Documents/GitHub/skills-problem-set-5-mixixibimlkrv/nested set 1.png"
+)
+```
+
+* 4.3.b
+```{r}
+knitr::include_graphics(
+  path = "/Users/8q48/Documents/GitHub/skills-problem-set-5-mixixibimlkrv/nested set 2.png"
+)
+```
+
+
+## 4.4
+
+It is only possible when one of two columns has one element. The sole element will be repeated to the length of the longer column.  
+However, if I try to create a tibble with two or more columns of different lengths (other than one), the tibble function throws an error.
+```{r}
+tibble(a = 1, b = 1:5)
+```
+
+```{r}
+reprex({
+  library(tibble)
+  tibble(a = 1:2, b = 1:4, c = 1)
+})
+```
+
+
+# 5 R4DS Chapter 21: Iterations
+
+## 5.1
+
+* 5.1.a Compute the mean of every column in mtcars.
+```{r}
+mean_mtcars <- vector("double", ncol(mtcars))
+for (i in seq_along(mtcars)) {
+  mean_mtcars[[i]] <- mean(mtcars[[i]])
+}
+mean_mtcars
+```
+
+* 5.1.b. Compute the number of unique values in each column of mpg.
+```{r}
+num_unique <- vector("double", ncol(mpg))
+for (i in seq_along(mpg)) {
+  num_unique[[i]] <- length(unique(mpg[[i]]))
+}
+num_unique
+```
+
+* 5.1.c. Generate 10 random points distributed poissons (rpois) for each of $\lambda$ = 1, 3, 10, 30 and 100.
+```{r}
+for (i in c(1, 3, 10, 30, 100)) {
+  print(rpois(10, lambda = i))
+}
+
+# Citation: https://stats.oarc.ucla.edu/r/modules/probabilities-and-distributions/
+```
+
+## 5.2
+```{r}
+files <- dir("/Users/8q48/Documents/GitHub/applied-ps-2-aditya-joy-eva",
+  pattern = "\\.csv$", full.names = TRUE
+)
+df <- data.frame()
+for (i in files) {
+  df <- bind_rows(df, read_csv(i))
+}
+```
+
+## 5.3
+```{r}
+show_mean <- function(dataframe) {
+  col <- names(select_if(dataframe, is.numeric))
+  for (i in col) {
+    print(paste0(i, ": ", round(mean(dataframe[[i]]), 2)))
+  }
+}
+show_mean(iris)
+
+# Citation: https://statisticsglobe.com/select-only-numeric-columns-from-data-frame-in-r
+```
+
+
+## 5.4
+* 5.4.a. Compute the mean of every column in mtcars.
+```{r}
+map(mtcars, mean)
+```
+
+* 5.4.b. Compute the number of unique values in each column of mpg.
+```{r}
+map(mpg, function(x) {
+    x %>%
+      unique() %>%
+      length()
+  }
+  )
+```
+
+* 5.4.c. Generate 10 random poissons (rpois) for each of $\lambda$ = 1, 3, 10, 30 and 100.
+```{r}
+pois <- c(1, 3, 10, 30, 100)
+map(pois,function(x) {
+    rpois(10, x)
+    })
+```
+
+
+## 5.5
+```{r}
+files <- dir("/Users/8q48/Documents/GitHub/applied-ps-2-aditya-joy-eva",
+  pattern = "\\.csv$", full.names = TRUE
+)
+files %>%
+  map_dfr(read_csv)
+
+# Citation: https://www.gerkelab.com/blog/2018/09/import-directory-csv-purrr-readr/
+```
+
+## 5.6
+```{r}
+five_squares <- (1:5)^2
+```
+
+* 5.6.a Describe the output of using map on a list map(list(five_squares), rnorm). Explain why the
+output turns out this way.
+
+The output is a list of five random numbers that has the same sample size as five_squares.
+It is because the `map()` on a list will apply the function `rnorm` inside the map to the list `list(five_squares)`. And `rnorm` regards the number of values in five_squares as its input sample size "n".
+```{r}
+map(list(five_squares), rnorm)
+```
+
+
+* 5.6.b What does map(five_squares, rnorm) do? Why?
+
+`map(five_squares, rnorm)` returns five vectors that each length equals to five values in five_squares. It is because `map()` will run the function `rnorm` inside the map the same times as each value in five_squares indicate.
+```{r}
+map(five_squares, rnorm)
+```
+
+* 5.6.c What does map(five_squares, rnorm, n = 5) do? Why?
+
+`map(five_squares, rnorm, n = 5)` returns five vectors that each length equals to five. It is because n = 5 defines that the function `rnorm` inside the map runs for five times.
+```{r}
+map(five_squares, rnorm, n = 5)
+```

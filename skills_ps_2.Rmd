@@ -1,0 +1,510 @@
+---
+title: "Skills Problem Set 2"
+author: "He Liu"
+date: "04/04/2020"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document: default
+---
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+```
+
+<!-- .Rmd files use  markdown, a text mark up language, to provide formating.--> 
+<!--Text include within these strange arrows are comments and will not show up when you knit-->
+
+# 1 Front matter
+This submission is my work alone and complies with the 30535 integrity policy.
+
+Add your initials to indicate your agreement: **HL**
+
+Add your collaborators: NA
+
+Late coins used this pset: 0. Late coins left: 5. 
+<!--You may use up to two for a given assignment.)-->
+
+# Problem 2
+
+1. git is software for distributed version control. List 4 benefits of distributed version control.  
+
+**(1)It is easy for user to write code offline. Users can work anywhere and anytime with full flexibility.**  
+**(2)It provides reliable backup copies. Users can easily clone a repository to their github desktop and push their code to online github. Users may check changes and revert easily, without worried about code loss.**  
+**(3)It is open source to everyone and all users have access to share their code and learn from others' code. **  
+**(4)Users can easily cooperate on github to finish a teamwork. They can smoothly share code and changes to others on repository. Distributed version control allows teams to use different branching strategies, thus less conflicts happen. **  
+Citation: https://about.gitlab.com/topics/version-control/benefits-distributed-version-control-system/ 
+
+2. For the next questions, we will reference “Learn git concepts, not commands”. Read sections from “Overview” through “Branching”. It is written with git commandline in mind, but github desktop has all these features as well. Focus on the concepts (ie understand the pictures). Save some changes to your homework and make sure it’s being tracked by git with github desktop.
+
+i. What is the remote repository for this homework? Be as specific as possible.  
+The remote repository is https://github.com/datasci-harris/skills-problem-set-2-mixixibimlkrv. It is constructed by github classroom that I joint.
+
+ii. How do you add a file to staging in github desktop? (This is subtle, because it happens automatically).
+After I cloned the repository to the desktop, any change I made in the documents in the github desktop through RStudio will be automatically detected by github desktop. By clicking knit in RStudio, pdf or HTML or Word that knitted will be showed automatically in github desktop. Thus, files are added to staging in github desktop.
+
+iii. How do you commit an issue to the local repository? (This is not subtle).  
+Github desktop can detect every change I made in Rmd. To commit an issue to the local repository, first find the `Changes` menu where shows all the changes I have made. Then, click changed files we want to commit. Then, click `Commit to main` after writing the required summary. Thus, issues are all committed to the local repository.
+
+iv. How does github desktop decide what part of your code to show in the main part of the window?  
+Code in red is what I removed. Code in green is what I add in. After I commit these changes to the local repo, all code are displayed without color.
+
+v. What branch are you on right now? Why?  
+I am now on main branch. Because after I cloned the remote repo to local, it brought me to this default branch and I didn't create any new branch.
+
+vi. If you were to click on “current branch”, type a name and click the “New Branch” button, you would create a new branch.  
+a. What would happen to the files in your working directory?  
+Nothing happened to the files in your working directory. 
+
+b. What would happen in the remote repo?  
+Nothing changed in the remote repo.
+
+c. Why would you want to work on a different branch?  
+We can synchronously work on different branches without worrying them disturb each other. When finishing my code, I can choose to merge it in the main branch which is much safer and of less conflicts.
+
+
+# Problem 3 
+## 3.1
+1. Why doesn’t this code work?
+my_variable <- 10
+my_variab1e
+
+Because there is a typo in my_variable: wrongly print l as 1(one). We should change my_variab1e in line 2 to my_variable.  
+Revised to:
+```{r}
+my_variable <- 10
+my_variable
+```
+
+
+2. Tweak each of the following R commands so that they run correctly:
+```{r}
+library(tidyverse)
+ggplot(data = mpg) + geom_point(mapping = aes(x = displ, y = hwy))
+filter(mpg, cyl == 8)
+filter(diamonds, carat > 3)
+```
+
+
+3. Press Alt + Shift + K. What happens? How can you get to the same place using the menus?   
+RStudio knits the current document. I can get to the same place by clicking "Knit" in the menu. I can further choose to knit to PDF. HTML or Word from the sub-menu.
+
+## 3.2
+1. Using the flights data from the nycflights13 package. Find all flights that:
+```{r}
+library(nycflights13)
+# i. Had an arrival delay of three or more hours
+flights%>% filter(arr_delay>=180)
+```
+
+```{r}
+#ii. Flew to Houston (IAH or HOU)
+flights%>% filter(dest=="IAH" | dest== "HOU")
+```
+
+```{r}
+#iii. Were operated by United, American, or Southwest
+flights%>% filter(carrier=="UA" | carrier== "AA" | carrier== "WN")
+```
+
+```{r}
+#iv. Departed in spring (March, April, and June)
+flights%>% filter(month==3 | month==4 | month==6)
+```
+
+```{r}
+#v. Arrived more than two hours late, but didn’t leave late
+flights%>% filter(arr_delay>120 & dep_delay<=0)
+```
+
+```{r}
+#vi. Were delayed by at least an hour, but made up over 30 minutes in flight
+flights%>% filter(dep_delay>=60 & arr_delay==dep_delay-30)
+```
+
+```{r}
+#vii. Departed between midnight and 5am (inclusive)
+flights%>% filter(dep_time %in% (000:500))
+```
+
+2. We reproduced a graph from the mpg data. There is one green triangle point that has very low gas mileage. What car is it?  
+
+The car is caravan 2wd.
+```{r}
+mpg%>%
+  filter(cty<13 & drv=="f")%>%
+  select(model)
+```
+1. Common bugs: You want to see missing values in a dataframe. You run the following code and get no results. Why is wrong?  
+
+Because we should use is.na() to check if arr_time is NA. NA is not a specific value. Thus, it is not proper to use equal sign to filter.
+Revised to:
+```{r}
+filter(flights, is.na(arr_time))
+```
+
+2. How many flights have a missing dep_time? Among these flights, what other variables are missing? What might these rows represent?  
+
+There are 8255 flights missing dep_time. Among these flights, dep_delay, arr_time,
+arr_delay, and air_time are also missing. These rows may represent the flights that are cancelled.
+```{r}
+flights%>%
+  filter(is.na(dep_time))
+
+```
+3. What does NA | TRUE evaluate to? Why?
+
+NA | TRUE evaluate to TRUE. Because NA means "not available" and | means "OR". Thus, NA | TURE will always be true with TRUE included and no matter what the other value is.
+```{r}
+NA | TRUE
+```
+
+
+4. What does FALSE & NA evaluate to? Why?
+
+FALSE & NA evaluate to FALSE. Because NA means "not available" and & means "AND". Thus, FALSE & NA will always be false with FALSE included and no matter what the other value is.
+```{r}
+FALSE & NA
+```
+
+
+## 3.3
+
+1. What happens if you include the name of a variable multiple times in a select() call?
+
+It will return the results as the variable only included once.
+```{r}
+flights%>%
+  select(arr_delay,arr_delay,flight)
+```
+
+
+2. Typically, R is case-sensitive, but select helpers ignore case by default. Change the default to return an empty tibble.
+```{r}
+select(flights, contains("TIME",ignore.case = FALSE))
+```
+
+3. Brainstorm as many distinct ways as possible to select dep_time, dep_delay, arr_time, and arr_delay from flights.
+```{r}
+# one way
+select(flights,starts_with(c("dep","arr")))
+
+# two way
+select(flights,dep_time, dep_delay, arr_time,arr_delay)
+
+# https://community.rstudio.com/t/how-do-i-combine-starts-with-and-ends-with-when-referencing-multiple-columns/112958/2
+```
+
+## 3.4 
+
+1. Sort flights to find the most delayed flights by arrival time. End your code with %>% head(1) to only print the most delayed row.
+```{r}
+flights%>%
+  arrange(desc(arr_delay))%>%
+  head(1)
+```
+
+2. Find the top 5 flights that left earliest relative to their scheduled departure. Only show the tail number, date and number of minutes early they departed at.
+```{r}
+flights%>%
+  arrange(dep_delay)%>%
+  select(year,month,day,tailnum,dep_delay)%>%
+  head(5)
+```
+
+3. Using the flight data, how could you use arrange() to sort all missing values in a certain variable first, before the rest of the data? (Hint: use is.na()).
+
+Using arrange(!is.na(certain_variable),certain_variable) to sort. This makes NA display on the top of certain variable column. It is because the order is defined by the logical vector !is.na() of TRUE/FALSE. FALSE(NA) is prior to TRUE(other values) in alphabetic order.
+```{r}
+flights%>%
+  arrange(!is.na(dep_delay),dep_delay)
+
+# Citation: https://stackoverflow.com/questions/25258817/how-to-have-nas-displayed-first-using-arrange 
+```
+
+
+## 3.5
+
+1. Currently dep_time and arr_time are convenient to look at, but hard to compute with because they’re not really continuous numbers. Convert them to number of minutes since midnight in new vars called \*_time_min, where \* here is variable and could be dep or arr.
+```{r}
+flights<-flights%>%
+  mutate(dep_time_min=(dep_time%/%100)*60+dep_time%%100)%>%
+  mutate(arr_time_min=(arr_time%/%100)*60+arr_time%%100)
+
+# Citation: https://blog.csdn.net/zhaoyuxia517/article/details/79420860
+```
+
+2. Make a plot to illustrate the distribution of the difference between air_time with arr_time_min - dep_time_min. What do you notice about the distribution?
+```{r}
+ggplot(data=flights)+
+  geom_point(aes(x=arr_time_min - dep_time_min,y=air_time, color=day))
+```
+
+3.  We expect air_time and arr_time_min - dep_time_min to be the same, but in many cases they are not.  
+
+i. What fraction of flights have different values for these two columns?  
+
+97.14% of flights have different values for air_time and arr_time_min - dep_time_min.
+```{r}
+diff<-flights%>%
+  mutate(diff=arr_time_min - dep_time_min)%>%
+  filter(diff !=air_time)
+
+nrow(diff)/nrow(flights)
+```
+
+
+ii. Why not? Identify an egregious data issue which causes an error of several hours.  
+
+We can only use arr_time_min-dep_time_min to get the amount of time spent in the air in one day. If arrival time is one day after the departure time, then there is an error of several hours that make arr_time_min - dep_time_min wrongly present time spent in the air. 
+
+
+iii. Identify an additional issue that causes smaller errors  
+
+The US has different time zone and dep_time and arr_time may be defined the local time zone.
+The jet lag causes some smaller errors.
+
+
+iv. Bonus: identify a third issue that causes smaller errors  
+It can be statistical measurement error. 
+
+4. If air_time is too far off from arr_time - dep_time then we assume one of the columns contains an error. Implement your fix to the major problem. Remake the plot from two questions prior.  
+```{r}
+diff_fix<-flights%>%
+  mutate(diff_fix=ifelse(arr_time_min>dep_time_min,arr_time_min - dep_time_min,
+                     1440-dep_time_min+arr_time_min))
+ggplot(data=diff_fix)+
+  geom_point(aes(x=diff_fix,y=air_time))+
+  geom_abline() +
+  coord_fixed()
+```
+
+
+5. After implementing your fix, what fraction of observations still appear to have an error?
+
+Still 97.14% of flights have different values for air_time and arr_time_min - dep_time_min.
+```{r}
+diff_fix<-diff_fix%>%
+  filter(diff_fix !=air_time)
+
+nrow(diff_fix)/nrow(flights)
+```
+
+6. Find the 10 least delayed flights using a ranking function. Carefully read the documentation for min_rank(). There may be more than 10 flights that are in the top 10! Why?
+
+Because min_rank() is equivalent to rank(ties.method="min"), instead of (ties.method = "first"). It allows many same values have same rank. Thus, there are more than 10 flights that are in the top 10.
+```{r}
+flights%>%
+  mutate(rank = min_rank(arr_delay))%>%
+  arrange(rank)%>%
+  filter(rank<11)
+
+```
+
+## 3.6
+
+1. In lecture, we defined a not_cancelled data frame. Come up with another approach that will give you the same output as not_cancelled %>% count(dest) and not_cancelled %>% count(tailnum, wt = distance) (without using count()).
+
+```{r}
+not_cancelled <- filter(flights, 
+                        !is.na(dep_delay), 
+                        !is.na(arr_delay))
+
+# not_cancelled %>% count(dest) 
+not_cancelled %>% 
+  group_by(dest)%>%
+  summarise(n())
+```
+
+```{r}
+# not_cancelled %>% count(tailnum, wt = distance)
+not_cancelled %>% 
+  group_by(tailnum)%>%
+  summarise(sum(wt= distance))
+```
+
+2. Calculate average delays by destination for flights originating in NYC. Create a variable which ranks destinations from worst to best, where 1 is the worst rank.
+```{r}
+not_cancelled%>%
+  group_by(dest)%>%
+  summarise(average_delay=mean(arr_delay))%>%
+  mutate(rank=min_rank(desc(average_delay)))%>%
+  arrange(rank)
+
+```
+
+3. What hour of the day should you fly if you want to avoid arrival delays as much as possible?
+
+I should choose 7 AM of the day to fly if I want to avoid arrival delays as much as possible. Because the average arrival delays on 7 hour is the smallest among 24 hours.
+```{r}
+not_cancelled%>%
+  group_by(hour)%>%
+  summarise(avg_arr_delay=mean(arr_delay))%>%
+  arrange(avg_arr_delay)
+```
+
+4. Which plane (tailnum) has the most minutes of delays total?
+
+N15910 has the most minutes of delays total.
+```{r}
+not_cancelled%>%
+  group_by(tailnum)%>%
+  mutate(total_delay=sum(arr_delay))%>%
+  arrange(desc(total_delay))%>%
+  head(1)
+```
+
+5. Find all destinations that are flown by at least three carriers. Order the results from most carriers to fewest.
+
+```{r}
+flights%>%
+  group_by(dest)%>%
+  summarise(count=n_distinct(carrier))%>%
+  filter(count>=3)%>%
+  arrange(desc(count))
+
+# Citation: https://statisticsglobe.com/count-unique-values-by-group-in-r 
+```
+
+6. Calculate the number of non-cancelled flights by each carrier. Report the results in table in reverse alphabetical order with the min() and max() distance each airline covers.
+```{r}
+sub_not_cancelled<-not_cancelled%>%
+  group_by(carrier)%>%
+  mutate(n=n())%>%
+  mutate(min_distance=min(distance))%>%
+  mutate(max_distance=max(distance))%>%
+  arrange(desc(carrier))
+
+library(data.table)
+table<-setDT(unique(sub_not_cancelled[c("carrier","n","min_distance","max_distance")]))
+table
+
+# Citation: https://www.geeksforgeeks.org/convert-dataframe-to-data-table-in-r/
+```
+
+7. Which airlines only offer flights from New York state to one other airport?
+
+AS(Alaska Airlines). F9(Frontier Airlines). HA(Hawaiian Airlines) are airlines that only offer flights from New York state to one other airport.
+```{r}
+flights%>%
+  group_by(carrier)%>%
+  summarise(dest_count=n_distinct(dest))%>%
+  filter(dest_count==1)
+
+```
+
+
+## 3.7
+
+1. We posit that arrival delays are more important than departure delays from a passanger’s perspective. We are interested in determining what airlines to avoid based on their delay characteristics.
+
+a. Calculate the median arrival delay by airline.
+```{r}
+flights%>%
+  group_by(carrier)%>%
+  summarise(median_arr_delay=median(arr_delay,na.rm = TRUE))%>%
+  arrange(desc(median_arr_delay))
+```
+
+b. Median arrival delay may not be the best metric for our needs. Brainstorm at least 2 additional ways to assess the typical delay characteristics of a group of flights.
+
+First way:  
+The mode of arrival delay represents flights most frequent delay time. Flights that have large mode of arrival delay are what we need to avoid.
+
+Second way:  
+The mean arrival delay represents average arrival delay level of each flight. Flights that have largest mean arrival delay with relative large standard error are what we need to avoid.
+
+
+c. Write the dplyr code which calculates your delay measures separately by airline. Do particular airlines perform poorly on multiple metrics?
+
+From the metric table combining two delay measures, we can find that carrier F9 and FL perform poorly on both metrics. F9 and FL have positive mode arrival delay, large mean arrival delay and large standard error. They are more likely the flights we need to avoid.
+```{r}
+# First way - mode
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]}
+# Citation: https://www.yiibai.com/r/r_mean_median_mode.html 
+
+not_cancelled%>%
+  group_by(carrier)%>%
+  summarise(mode_arr_delay=getmode(arr_delay))%>%
+  arrange(desc(mode_arr_delay))
+```
+
+```{r}
+# Second way - mean
+not_cancelled%>%
+  group_by(carrier)%>%
+  summarise(mean_arr_delay=mean(arr_delay),sd_arr_delay=sd(arr_delay))%>%
+  arrange(mean_arr_delay,sd_arr_delay)
+```
+
+
+```{r}
+# combine two ways to a Table 
+metric_flights<-not_cancelled%>%
+  group_by(carrier)%>%
+  summarise(mode_arr_delay=getmode(arr_delay),mean_arr_delay=mean(arr_delay),sd_arr_delay=sd(arr_delay))%>%
+  arrange(mode_arr_delay,mean_arr_delay,sd_arr_delay)
+
+metric<-setDT(metric_flights)
+metric
+```
+
+## 3.8
+
+1. Delays are typically temporally correlated: even once the problem that caused the initial delay has been resolved, later flights are delayed to allow earlier flights to leave.
+
+a. Order flights by departing airport, arrival airport, day, and scheduled departure time. For each flight, use lag() and group_by() to compute the delay on the previous flight – if there is such a flight on the same day.
+```{r}
+delay_flights<-flights%>%
+  group_by(year,month,day,origin,dest)%>%
+  arrange(origin, dest, year, month, day, sched_dep_time) %>%
+  mutate(pre_delay = lag(dep_delay))%>%
+  select(year,month,day,origin,sched_dep_time,dest,dep_delay,pre_delay,everything())
+
+
+head(delay_flights)
+```
+
+b. Make a plot which shows the relationship between a flight’s delay and the delay of the immediately preceding scheduled flight. You have a lot of data, so think carefully about how to develop a plot which is not too cluttered.
+```{r}
+ggplot(data=delay_flights)+
+  geom_smooth(mapping=aes(x=dep_delay, y=pre_delay))
+  
+```
+
+
+2. Now we will look at delays that occur in the air. We will need a sense of how long a flight is.
+
+a. Compute the air time for each flight relative to the median flight to that destination. Which flights were most delayed in the air?
+
+DL841 to SFO is the most delayed flight in the air.
+```{r}
+airtime_flights<-flights%>%
+  group_by(dest)%>%
+  mutate(relative_airtime=air_time-median(air_time,na.rm=TRUE))%>%
+  mutate(rank_airtime=min_rank(desc(relative_airtime)))%>%
+  filter(rank_airtime==1)%>%
+  select(carrier,flight,dest,tailnum,relative_airtime)%>%
+  arrange(desc(relative_airtime))
+
+airtime_flights
+```
+
+3. For each plane, count the number of flights before the first delay of greater than 1 hour. (Hints: Construct a Boolean variable for every flight which measures whether it had a delay of greater than 1 hour and then use cumsum).
+```{r}
+delay_num<-flights%>%
+  group_by(tailnum) %>%
+  arrange(year,month,day,hour,minute)%>%
+  mutate(ifdelay = ifelse(dep_delay > 60, 1, 0))%>%
+  mutate(delay_cum = cumsum(ifdelay))%>%
+  filter(delay_cum == 0) %>%
+  mutate(b4_delay=n())%>%
+  select(tailnum, b4_delay) %>%
+  distinct() %>%
+  arrange(desc(b4_delay))
+  
+delay_num
+```
+

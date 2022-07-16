@@ -1,0 +1,449 @@
+---
+title: "skills_ps_4"
+author: "He Liu"
+date: "29/04/2022"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document: default
+---
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+```
+
+<!-- .Rmd files use  markdown, a text mark up language, to provide formating.--> 
+<!--Text include within these strange arrows are comments and will not show up when you knit-->
+
+**Front matter**  
+This submission is my work alone and complies with the 30535 integrity policy.
+
+Add your initials to indicate your agreement: **H.L.**
+
+Add your collaborators: **NA**
+
+Late coins used this pset: 1. Late coins left: 4. 
+<!--Please update. You may use up to two for a given assignment. Note we added 5 late coins for a total of 9 for the quarter.)-->
+
+# 1 Tidy data with pivot_wider() and pivot_longer()
+
+## 1.1
+
+table1 is easier to work with. Because data of cases and population is given by year, we can directly mutate the rate by dividing them two.  
+table4a and table4b is harder because data is separated to two dataframe, we need first merge them together and then pivot the table to calculate the rate. The unprepared data format makes calculation difficult.
+
+```{r}
+# table1
+table1 %>%
+  group_by(country, year) %>%
+  mutate(TB_rate = cases / population * 10000)
+
+# table2
+table2 %>%
+  pivot_wider(
+    names_from = "type",
+    values_from = "count"
+  ) %>%
+  group_by(country, year) %>%
+  mutate(TB_rate = cases / population * 10000)
+
+# table4a & table4b
+table4a %>%
+  left_join(table4b, by = "country") %>%
+  pivot_longer(
+    cols = `1999.x`:`2000.y`,
+    names_to = "type",
+    values_to = "count"
+  ) %>%
+  mutate(type_re = ifelse(type %in% c("1999.x", "2000.x"), "cases", "population")) %>%
+  mutate(year = ifelse(type %in% c("1999.x", "1999.y"), 1999, 2000)) %>%
+  select(-type) %>%
+  pivot_wider(
+    names_from = "type_re",
+    values_from = "count"
+  ) %>%
+  group_by(country, year) %>%
+  mutate(TB_rate = cases / population * 10000)
+```
+
+
+## 1.2
+
+```{r}
+table2 %>%
+  pivot_wider(
+    names_from = type,
+    values_from = count
+  ) %>%
+  ggplot(aes(year, cases)) +
+  geom_line(aes(group = country), colour = "grey50") +
+  geom_point(aes(colour = country))
+```
+
+
+## 1.3
+
+```{r}
+stocks <- tibble(
+  year = c(2015, 2015, 2016, 2016),
+  half = c(1, 2, 1, 2),
+  return = c(1.88, 0.59, 0.92, 0.17)
+)
+stocks
+```
+
+
+```{r}
+stocks %>%
+  pivot_wider(names_from = year, values_from = return) %>%
+  pivot_longer(`2015`:`2016`, names_to = "year", values_to = "return")
+```
+
+## 1.4
+
+```{r}
+library(reprex)
+reprex({
+  library(tidyverse)
+  table4a %>%
+    pivot_longer(1999:2000, names_to = "year", values_to = "cases")
+})
+```
+
+## 1.5
+
+The failing code will navigate the location 1999 column and 2000 column which don't exist in the table.  
+We can fix this by adding a backtick on the column named 1999 and 2000. It shows below.
+```{r}
+table4a %>%
+  pivot_longer(`1999`:`2000`, names_to = "year", values_to = "cases")
+```
+
+## 1.6
+
+pivot_wider fail on this tibble because there are two people with the same name "Phillip Woods". This makes two values corresponding to one column of age and height. Therefore, values are transferred to a list in each unit and cannot be shown after pivoting.  
+
+Original:
+```{r}
+people <- tribble(
+  ~name, ~key, ~value,
+  #-----------------|--------|------
+  "Phillip Woods", "age", 45,
+  "Phillip Woods", "height", 186,
+  "Phillip Woods", "age", 50,
+  "Phillip Woods", "height", 185,
+  "Jessica Cordero", "age", 37,
+  "Jessica Cordero", "height", 156
+)
+
+people %>%
+  pivot_wider(names_from = "key", values_from = "value")
+```
+
+After adding a new column that separate two "Phillip Woods", pivot_wider works which as people_new shows.
+```{r}
+people_new <- people %>%
+  mutate(name_new = c("Phillip Woods (1)", "Phillip Woods (1)", "Phillip Woods (2)", "Phillip Woods (2)", "Jessica Cordero", "Jessica Cordero"))
+
+people_new %>%
+  pivot_wider(names_from = "key", values_from = "value")
+```
+
+## 1.7
+
+I need to make the tibble longer then make it wider.  
+The variables are `gender`, two results of whether pregnant `yes` and `no`.
+```{r}
+preg <- tribble(
+  ~pregnant, ~male, ~female,
+  "yes", NA, 10,
+  "no", 20, 12
+)
+preg %>%
+  pivot_longer(`male`:`female`,
+    names_to = "gender",
+    values_to = "count"
+  ) %>%
+  pivot_wider(
+    names_from = "pregnant",
+    values_from = "count"
+  )
+```
+
+## 1.8
+
+extra argument is used when there are too many pieces in the character vector separate(). If I choose the option "merge" in extra(), the extra values will be kept in the last column.
+
+fill argument is used when there are not enough pieces in the character vector separate(). If I choose the option "right" in fill(), the values will fill left-aligned, leaving the missing values on the right. If I choose the option "left" in fill(), the values will fill right-aligned, leaving the missing values on the left.
+
+```{r}
+# extra
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>%
+  separate(x, c("one", "two", "three"), extra = "merge")
+
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>%
+  separate(x, c("one", "two", "three"), extra = "drop")
+
+# fill
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>%
+  separate(x, c("one", "two", "three"), fill = "right")
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>%
+  separate(x, c("one", "two", "three"), fill = "left")
+```
+
+## 1.9
+
+I pivot the table longer to show the TB cases of each country. I count the number of cases each country have by iso2 and iso3 respectively. The results are the same which indicates that iso2 and iso3 are redundant with country.
+```{r}
+who_pivot_longer <- who %>%
+  pivot_longer(new_sp_m014:newrel_f65,
+    names_to = "key",
+    values_to = "cases",
+    values_drop_na = TRUE
+  )
+
+who_pivot_longer %>%
+  select(country, iso2, key, cases) %>%
+  count(country, iso2)
+
+who_pivot_longer %>%
+  select(country, iso3, key, cases) %>%
+  count(country, iso3)
+```
+
+# 2 tidying case study
+
+## 2.1
+**2.1.a**  
+Yes, there are implicit missing values.  
+7446 - 7240 = 206  
+There are 206 rows missing values.
+```{r}
+who %>%
+  nrow()
+```
+
+```{r}
+who %>%
+  complete(country, year) %>%
+  nrow()
+```
+
+**2.1.b**  
+There are 7240 pairs of country-year missing.
+```{r}
+who_na <- who %>%
+  pivot_longer(
+    cols = new_sp_m014:newrel_f65,
+    names_to = "key",
+    values_to = "cases"
+  ) %>%
+  group_by(country, year) %>%
+  count(cases)
+
+sum(is.na(who_na$cases) == TRUE)
+who %>%
+  pivot_longer(
+    cols = new_sp_m014:newrel_f65,
+    names_to = "key",
+    values_to = "cases"
+  )
+```
+
+## 2.2
+NA means the data is explicitly missing, while zero means 
+
+## 2.3
+If I neglect the mutate() step, there will be errors in subsequent steps. I want to separate the values in "key" at each underscore. Replacing the characters “newrel” with “new_rel” makes all variable names consistent and facilitate next step.
+```{r}
+who1 <- who %>%
+  pivot_longer(
+    cols = new_sp_m014:newrel_f65,
+    names_to = "key",
+    values_to = "cases",
+    values_drop_na = TRUE
+  )
+
+who2 <- who1 %>%
+  mutate(key = stringr::str_replace(key, "newrel", "new_rel"))
+
+```
+
+## 2.4
+**2.4.a**  
+n is the total number of cases of TB for each country, year, and sex.
+```{r}
+who3 <- who2 %>%
+  separate(key, c("new", "type", "sexage"), sep = "_") %>%
+  select(-new, -iso2, -iso3) %>%
+  separate(sexage, c("sex", "age"), sep = 1) %>%
+  group_by(country, year, sex) %>%
+  summarize(n = sum(cases))
+
+who3
+```
+
+**2.4.b**  
+Because raw data mix type, sex and age together in one column. It is hard to compute the total number of cases of TB for each country, year and sex without separating those information to different columns.
+
+**2.4.c**  
+```{r}
+who4 <- who3 %>%
+  pivot_wider(
+    names_from = "sex",
+    values_from = "n"
+  ) %>%
+  mutate(ratio = m / f)
+
+who4
+```
+
+**2.4.d**  
+Because there will be 219 ratios for each year since there are 219 countries. And we don't know which ratio corresponds to which country if producing these ratios by year (ignoring country).
+
+**2.4.e**
+```{r}
+who4 %>%
+  select(year, f, m) %>%
+  pivot_wider(names_from = "year", ) %>%
+  mutate(f_all = sum(f)) %>%
+  mutate(m_all = sum(m))
+
+
+ggplot(data = who4, aes(x = factor(year), y = ratio)) +
+  geom_boxplot() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  labs(
+    x = "Year", y = "Ratio",
+    title = "The ratio of male to female patients for each country, year"
+  ) +
+  scale_y_continuous(breaks = seq(0, 14, 1))
+
+# Citation: https://cloud.tencent.com/developer/ask/26460
+```
+
+**2.4.f**  
+Headline:  
+The ratio of male to female TB patients across country becomes more disperse and higher through 1980 to 2013.  
+Subpoints:  
+1. Before year 1994, ratios in different countries concentrate in the range of 0 to 2. After year 1994, ratios become more various and are in range of 0 to 4.  
+2. Outliers increased after year 1994. Outliers of ratios of male to female TB patients become higher to 10 in many countries.  
+3. In general, the median of ratios increased in 1994 to 2013 compared to 1980 to 1994.
+
+
+# 3 Joins
+
+## 3.1
+
+```{r}
+library(nycflights13)
+
+avg_delays_by_dest <- flights %>%
+  group_by(dest) %>%
+  summarize(avg_delay = mean(arr_delay, na.rm = TRUE))
+
+airports %>%
+  inner_join(avg_delays_by_dest, c("faa" = "dest")) %>%
+  filter(faa != "ANC" & faa != "HNL") %>%
+  ggplot(aes(lon, lat)) +
+  borders("state") +
+  geom_point(aes(color = avg_delay)) +
+  coord_quickmap() +
+  labs(
+    title = "Average delay by destination",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## 3.2
+
+```{r}
+latlon <- airports %>%
+  select(faa, lat, lon)
+
+flights <- flights %>%
+  left_join(latlon, c("origin" = "faa")) %>%
+  rename(lat_origin = lat) %>%
+  rename(lon_origin = lon)
+
+flights <- flights %>%
+  left_join(latlon, c("dest" = "faa")) %>%
+  rename(lat_dest = lat) %>%
+  rename(lon_dest = lon)
+
+flights
+```
+
+## 3.3
+No, some planes are not flown by a single airline.  
+If we group flights by tailnum and carrier, there are 4054 rows, meaning that there are 4067 unique plane-carrier pairs. If we group flights by tailnum, there are 4044 rows, meaning that there are 4044 planes.  
+4054 - 4037 = 17  
+Therefore, 17 planes change ownership within the nycflights13 dataset.
+```{r}
+flights %>%
+  group_by(tailnum, carrier) %>%
+  drop_na() %>%
+  count()
+
+flights %>%
+  group_by(tailnum) %>%
+  drop_na() %>%
+  count()
+```
+
+## 3.4
+From the first point graph, we get the average departure delays of each plane at the same age. We can see that in general, average departure delays are in the range of 0 to 50 in despite of the age of plane and don't show a salient pattern. Outliers dramatically decreased after age 28 of plane.  
+From the second line graph, we get the average departure delays of all planes at the same age. Differences between average departure delays at different ages are subtle which indicates the fluctation in all ages is small and the relationship between the age of a plane and its depature delays is weak.
+```{r}
+flights %>%
+  rename("year_dep" = "year") %>%
+  inner_join(planes, by = "tailnum") %>%
+  rename("year_manu" = "year") %>%
+  mutate(age = year_dep - year_manu) %>%
+  select(dep_delay, arr_delay, age, tailnum) %>%
+  filter(!is.na(dep_delay), !is.na(age)) %>%
+  group_by(tailnum) %>%
+  summarize(avg_dep_delay = mean(dep_delay), age = mean(age)) %>%
+  ggplot() +
+  geom_boxplot(aes(x = factor(age), y = avg_dep_delay)) +
+  labs(
+    title = "Relationship between the age of a plane and its departure delays",
+    x = "Age of plane",
+    y = "Average of departure delays"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  scale_y_continuous(breaks = seq(0, 300, 50))
+```
+
+```{r}
+flights %>%
+  rename("year_dep" = "year") %>%
+  inner_join(planes, by = "tailnum") %>%
+  rename("year_manu" = "year") %>%
+  mutate(age = year_dep - year_manu) %>%
+  select(dep_delay, arr_delay, age, tailnum) %>%
+  filter(!is.na(dep_delay), !is.na(age)) %>%
+  group_by(age) %>%
+  summarize(avg_dep_delay = mean(dep_delay), age = mean(age)) %>%
+  ggplot() +
+  geom_line(aes(x = age, y = avg_dep_delay)) +
+  labs(
+    title = "Relationship between the age of a plane and its departure delay",
+    x = "Age of plane",
+    y = "Average of departure delays"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+
+

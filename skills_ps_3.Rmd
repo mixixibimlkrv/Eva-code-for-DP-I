@@ -1,0 +1,397 @@
+---
+title: "skills_ps_3"
+author: "He Liu"
+date: "4/22/2022"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document: default
+---
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(styler)
+library(nycflights13)
+```
+
+<!-- .Rmd files use  markdown, a text mark up language, to provide formating.--> 
+<!--Text include within these strange arrows are comments and will not show up when you knit-->
+
+# 1 Front matter
+This submission is my work alone and complies with the 30535 integrity policy.
+
+Add your initials to indicate your agreement: **H.L.**
+
+Add names of anyone you discussed this problem set with: NA
+
+Late coins used this pset: 0. Late coins left: 5. 
+<!--You may use up to two for a given assignment.)-->
+
+# 2 EDA: Exploring variation
+
+## 2.1
+**2.1.a**  
+It fits my expectations.
+The amount of diamonds decrease in the diamond price. The more scarce, the more valuable the diamonds are. The amount of diamond with lowest price is the largest, the amount of diamond with highest price is the smallest.
+```{r setup, include=FALSE}
+diamonds <- diamonds
+ggplot(data = diamonds) +
+  geom_histogram(mapping = aes(x = price))
+```
+
+**2.1.b**  
+I tried a wide range of binwidth values and found that we can get a more specific distribution of price with the smaller binwidth. When binwdith is 100, the unusual thing I found is that the biggest amount of diamonds is not at lowest price \$326 but at around \$800. And the amount of diamonds at around \$4200 is higher than its surrounding. When binwidth is 10, I found there is a gap at \$1700. It seems that no diamonds has price at around \$1700.
+```{r, fig.height = 3}
+ggplot(data = diamonds) +
+  geom_histogram(mapping = aes(x = price), binwidth = 10)
+ggplot(data = diamonds) +
+  geom_histogram(mapping = aes(x = price), binwidth = 100)
+
+```
+
+## 2.2
+
+**2.2.a**  
+The overall pattern of carat is that in general, diamonds with smaller carat are likely to be more in quantity. In each 0.5 unit of carat, the amount of diamonds is descending. There is always a jump at 0.5 carat, 0.7 carat, 0.9 carat, 1 carat, 1.5 carat and 2 carat. Given what I saw in prices, this graph fits my expectation that amount of diamonds is not negatively related with the weight. 
+```{r, fig.height = 3}
+ggplot(data = diamonds) +
+  geom_histogram(mapping = aes(x = carat), binwidth = 0.01)
+```
+
+**2.2.b**  
+23 diamonds are 0.99 carat. 1558 diamonds are 1 carat.  
+The cause of the difference may be that diamonds of integer carat can get a higher price than those just slightly lighter diamonds. The price difference between them are big enough compared to their weight difference (like 0.99 carat and 1 carat) for people to make more diamonds at integer carat. People can gain relatively higher profits by just increasing little diamond weight. 
+```{r}
+diamonds %>%
+  count(carat == 0.99)
+diamonds %>%
+  count(carat == 1)
+
+ggplot(data = diamonds) +
+  stat_summary(
+    mapping = aes(x = carat, y = price),
+    geom = "col", fun = mean
+  )
+
+# Citation:https://stackoverflow.com/questions/63998992/why-does-geom-col-add-instead-of-show-the-means
+```
+
+## 2.3
+When we add limits on x-axis, we zoom in the carat and get more information on amount of smaller unit carat. However, the binwidth seems too much wide which conceals the specific count value of each unit carat. When we add limits on y-axis, we zoom in the count and get more details on carat distribution. However, we may lose some information on diamonds with high amount as the limitation interval shrinks.   
+
+If I leave binwidth at its default value and zoom in further and further, we can only get limited additional information on amount value of each carat. Because the binwidth is too wide to show more details even though our x-axis or y-axis is breaked into smaller units.
+```{r, fig.height = 3}
+ggplot(data = diamonds) +
+  geom_histogram(mapping = aes(x = carat)) +
+  coord_cartesian(xlim = c(0, 2))
+ggplot(data = diamonds) +
+  geom_histogram(mapping = aes(x = carat)) +
+  coord_cartesian(xlim = c(0.5, 1))
+
+ggplot(data = diamonds) +
+  geom_histogram(mapping = aes(x = carat), binwidth = 0.1) +
+  coord_cartesian(ylim = c(0, 10000))
+ggplot(data = diamonds) +
+  geom_histogram(mapping = aes(x = carat), binwidth = 0.1) +
+  coord_cartesian(ylim = c(0, 1000))
+```
+
+# 3 EDA: Navigating NAs
+## 3.1
+Missing values are not shown in histogram chart. Missing values are shown in bar chart.  
+This difference is because in a histogram, different values are shown in order on the x-axis, but NA can’t be ordered, so it will not be shown. However, in a bar chart, NA is regarded as a value, so it will be shown.
+```{r, fig.height = 3}
+diamonds %>%
+  mutate(clarity_na = ifelse(clarity %in% c("VS2", "VVS1", "VVS2"), NA, clarity)) %>%
+  ggplot() +
+  geom_histogram(aes(x = clarity_na), binwidth = 0.5)
+
+diamonds %>%
+  mutate(clarity_na = factor(ifelse(clarity %in% c("VS2", "VVS1", "VVS2"), NA, clarity))) %>%
+  ggplot() +
+  geom_bar(aes(x = clarity_na, group = 1), width = 0.5)
+
+```
+
+## 3.2 
+
+na.rm = TRUE excludes NAs when calculating mean and sum.
+
+# 4 Diamonds
+## 4.1
+**4.1.a**  
+Carat is the most important variable for predicting the price of a diamond.
+```{r, fig.height = 3}
+ggplot(data = diamonds) +
+  geom_point(aes(x = price, y = carat, color = cut))
+
+ggplot(data = diamonds) +
+  geom_point(aes(x = price, y = carat, color = color)) +
+  facet_wrap(vars(cut))
+
+ggplot(data = diamonds) +
+  geom_point(aes(x = price, y = carat, color = clarity)) +
+  facet_wrap(vars(cut))
+
+ggplot(data = diamonds) +
+  geom_smooth(aes(x = x, y = price), color = "green", se = FALSE) +
+  geom_smooth(aes(x = y, y = price), color = "red", se = FALSE) +
+  geom_smooth(aes(x = z, y = price), se = FALSE) +
+  geom_smooth(aes(x = depth, y = price), color = "black", se = FALSE) +
+  geom_smooth(aes(x = table, y = price), color = "yellow", se = FALSE) +
+  xlab(" ")
+```
+**4.1.b**  
+The carat is positively correlated with the price. Holding others constant, on average, the greater weight diamonds have higher price.
+
+**4.1.c**  
+The table is misleading because we don't hold other variables like carat and color constant to observe the relationship between cut and price. Though those diamonds' cut are fair, they may with best color and great weight on average, which makes mean price of fair cut diamonds higher than others. And it is possible that ideal cut diamonds are intensively in worse color and light weight, which makes ideal cut diamonds price lower.  
+Also, the mean price of fair cut may be distorted by some extreme values. The amount of fair cut diamonds is relatively small. Several fair cut diamonds with high price has great influence on the fair cut diamonds mean price. This misleadingly makes mean price seem like the highest .
+
+## 4.2
+**4.2.a**  
+Ideal cut is the most common in every color category. 
+```{r, fig.height = 3}
+require(viridis)
+diamonds %>%
+  count(color, cut) %>%
+  group_by(color) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(mapping = aes(x = color, y = cut)) +
+  geom_tile(mapping = aes(fill = prop)) +
+  scale_fill_viridis(limits = c(0, 1))
+```
+
+**4.2.b**  
+Color G is the most common in every cut category.
+```{r, fig.height = 3}
+diamonds %>%
+  count(color, cut) %>%
+  group_by(cut) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(mapping = aes(x = color, y = cut)) +
+  geom_tile(mapping = aes(fill = prop)) +
+  scale_fill_viridis(limits = c(0, 1))
+```
+
+**4.2.c**
+```{r, fig.height = 3}
+diamonds %>%
+  count(color, cut) %>%
+  group_by(cut) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = color, y = prop), stat = "identity") +
+  facet_wrap(vars(cut)) 
+```
+
+## 4.3
+**4.3.a**
+```{r, fig.height = 3}
+#cut width
+ggplot(
+  data = diamonds,
+  mapping = aes(
+    x = price,
+    y = ..density..,
+    colour = cut_width(carat, 0.6)
+  )
+) +
+  geom_freqpoly()
+
+# cut number
+ggplot(
+  data = diamonds,
+  mapping = aes(
+    x = price,
+    y = ..density..,
+    colour = cut_number(carat, 8)
+  )
+) +
+  geom_freqpoly()
+```
+
+**4.3.b**  
+Pros: Plotting the density instead of counts in cut_width will make the distributions comparable while there is no difference in cut_number. This show more information about the price concentration in each carat interval. Though less numbers in large carat interval, we still can know its distribution about high-density price and low-density price.
+
+Cons: Bins with more values in cut_width have more salient line shape while bins with little values' distribution is not clear.Therefore, the bins with few observations will be hard to interpret.
+
+## 4.4
+```{r, fig.height = 3}
+ggplot(
+  data = diamonds,
+  mapping = aes(
+    x = carat,
+    y = ..density..,
+    colour = cut_width(price, 4000)
+  )
+) +
+  geom_freqpoly() +
+  labs(title = "Carat distribution partitioned by price in every $4000 interval")
+```
+
+## 4.5
+The price of very large diamonds is more likely to be high compared to small diamonds. The proportion of high price in large diamonds is bigger than the proportion of high price in small diamonds.  
+It is as my expect. Because holding other conditions constant, larger diamonds are more scarce and thhus valuable.
+```{r, fig.height = 3}
+ggplot(data = diamonds) +
+  geom_point(aes(x = carat, y = price))
+```
+
+## 4.6
+```{r, fig.height = 3}
+ggplot(data = diamonds) +
+  geom_point(aes(x = price, y = carat, color = cut))
+
+ggplot(data = diamonds) +
+  geom_point(aes(x = carat, y = price), alpha = 0.3) +
+  facet_wrap(vars(cut))
+
+```
+
+## 4.7
+geom_point is better for identifying outliers. Because the color tile in geom_bin2d is too big to identify outliers' x and y value range. It is also hard to see how many outliers in the dark area. However, In geom_point graph, data is showed in single point which we can easily get the approximate x and y value of outliers and their amount.
+```{r, fig.height = 3}
+ggplot(data = diamonds) +
+  geom_point(mapping = aes(x = x, y = y)) +
+  coord_cartesian(xlim = c(4, 11), ylim = c(4, 11))
+
+ggplot(data = diamonds) +
+  geom_bin2d(mapping = aes(x = x, y = y)) +
+  coord_cartesian(xlim = c(4, 11), ylim = c(4, 11))
+```
+
+# 5 Flights
+## 5.1
+From geom_smooth, I can know how depature delay varies in the scheduled departure time. Though it is a rough trend, we can still know that below 2000, departure delay increases in the scheduled departure time and above 2000, departure delay decreases in scheduled departure time.   
+From geom_boxplot, I can see those outliers in different groups. Because the box is too flat, I cannot get much information about the mean, max, min and quartiles of departure delay.  
+From geom_bin2d, I find that below 1000 scheduled departure time, the departure delay is the smallest.  
+I would never want to use geom_boxplot to relate two continuous variables. Because boxplot is totally not proper to depict relationship between continuous variables in big dataset. Key values are hard to observe. The boxplot is more applicable to relate a discrete variable and a continuous variable.
+```{r, fig.height = 3}
+ggplot(data = flights) +
+  geom_smooth(mapping = aes(x = sched_dep_time, y = dep_delay))
+```
+```{r, fig.height = 3}
+ggplot(data = flights) +
+  geom_boxplot(
+    mapping = aes(
+      x = sched_dep_time, y = dep_delay,
+      group = cut_width(sched_dep_time, 300)
+    ),
+    orientation = "x"
+  )
+```
+```{r, fig.height = 3}
+ggplot(data = flights, aes(x = sched_dep_time, y = dep_delay)) +
+  geom_bin2d(aes(bins = 20)) +
+  scale_fill_gradient(low = "#00AFBB", high = "#FC4E07")
+
+# Citation: http://www.sthda.com/english/articles/32-r-graphics-essentials/131-plot-two-continuous-variables-scatter-graph-and-alternatives/
+```
+
+# 6 R4DS Chapter 10 and 11
+## 6.1
+The results mainly differ in the first operater. For first operator \$, the result of dataframe is the value in column which name started with "x". The result of tibble is NULL because tibble cannot find the relevant column in this way.  
+For second and third operator, the results of dataframe and tibble are almost same. However, the result of dataframe turns out in list or dataframe format while the result of tibble turns out in tibble format.  
+The default data frame behaviours may cause my frustration if there are more than 1 column which names start with "x", then R will confuse about which value to return.
+```{r}
+d_f <- data.frame(abc = 1, xyz = "a")
+d_f$x
+```
+```{r}
+d_f[, "xyz"]
+```
+```{r}
+d_f[, c("abc", "xyz")]
+```
+```{r}
+tb <- tribble(
+  ~abc, ~xyz,
+  1, "a"
+)
+tb$x
+```
+```{r}
+tb[, "xyz"]
+```
+```{r}
+tb[, c("abc", "xyz")]
+```
+
+
+## 6.3
+**6.3.1**  
+There are two columns as "a, b" set. However, there are three values, so that two and third values merge together into second column.
+```{r}
+read_csv("a,b\n1,2,3\n4,5,6")
+```
+**6.3.2**  
+There are three columns as "a, b, c" set. However, there are two values in first row and four values in second row, so that NA is created in first row and third and fourth values merge together into third column in second row.
+```{r}
+read_csv("a,b,c\n1,2\n1,2,3,4")
+```
+**6.3.3**  
+"1 is somrething cannot be interpreted by R, so nothing is returned, only 0 row.
+```{r}
+read_csv("a,b\n\"1")
+```
+**6.3.4**  
+Because the inclusion of "a, b" in second row, all values are treated as character. However, we may want 1 and 2 to be recognized as numeric.
+```{r}
+read_csv("a,b\n1,2\na,b")
+```
+**6.3.5**  
+; cannot be used as separation symbol as commas. a;b and 1;3 are regarded as a whole which we may want to separate them.
+```{r}
+read_csv("a;b\n1;3")
+```
+
+## 6.4
+date_format and time_format options to locale() indicate the rules for parsing a date and time, respectively.
+```{r}
+parse_date("12 maio 2012", "%d %B %Y", locale = locale("pt"))
+```
+
+## 6.5
+```{r}
+d1 <- "January 1, 2010"
+d2 <- "2015-Mar-07"
+d3 <- "06-Jun-2016"
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+d5 <- "12/30/14" # Dec 30, 2014
+t1 <- "1805" # 6:05 pm
+t2 <- "11:25:10.12 PM"
+
+parse_date(d1, "%B %d, %Y")
+```
+
+```{r}
+parse_date(d2, "%Y-%b-%d")
+```
+
+```{r}
+parse_date(d3, "%d-%b-%Y")
+```
+
+```{r}
+parse_date(d4, "%B %d (%Y)")
+```
+
+```{r}
+parse_date(d5, "%m/%d/%y")
+```
+
+```{r}
+parse_time(t1, "%H%M")
+```
+
+```{r}
+parse_time(t2, "%H:%M:%OS %p")
+```
+
+## 6.6
+The output shows column positions where data columns begin and end and the column names.
+```{r}
+fwf_empty(readr_example("massey-rating.txt"))
+```
+

@@ -1,0 +1,343 @@
+---
+title: "Skills Problem Set 1"
+author: "He Liu"
+date: "03/04/2022"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document: default
+---
+# Set up
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+<!-- .Rmd files use  markdown, a text mark up language, to provide formating.--> 
+<!--Text include within these strange arrows are comments and will not show up when you knit-->
+
+**Front matter**
+This submission is my work alone and complies with the 30535 integrity policy.
+
+Add your initials to indicate your agreement: **HL**  
+Add your collaborators: N/A  
+Late coins used this pset: 0. Late coins left: 5.
+
+# Problem 1
+4. Install the devtools package using install.packages("devtools")
+```{r}
+# install.packages("devtools")
+```
+
+5. Install all the packages used in the book using devtools::install_github("hadley/r4ds")
+```{r}
+# devtools::install_github("hadley/r4ds")
+```
+
+10.
+```{r}
+list_of_packages <- c("tidyverse", "rmarkdown")
+#install.packages(list_of_packages)
+#I skip this step because I already installed these packages in my RStudio.
+```
+
+11.
+```{r}
+new.packages <- list_of_packages[!(list_of_packages %in% installed.packages()[,"Package"])]
+new.packages
+
+if(length(new.packages) > 0) 
+{install.packages(new.packages, dependencies = TRUE) 
+  print(paste0("The following package was installed:", new.packages)) } else if (length(new.packages) == 0) 
+  {print("All packages were already installed previously")}
+
+# Citation: https://stackoverflow.com/questions/4090169/elegant-way-to-check-for-missing-packages-and-install-them
+```
+
+My Github id is 54429544.
+
+# Problems 2 R for Data Science Exercises
+## 2.1
+<!--(Notice the use of two `##` followed by a space. )-->
+
+```{r}
+# 1. How many rows are in mpg? How many columns? What do the rows represent? How about the columns?
+library(tidyverse)
+nrow(mpg)
+ncol(mpg)
+
+rownames(mpg)
+colnames(mpg)
+# https://blog.csdn.net/qq_38402294/article/details/89786009
+
+# 2. Make a scatterplot of hwy vs cyl.
+ggplot(mpg)+
+  geom_point(aes(x=hwy,y=cyl))
+
+# 3. What does the drv variable describe? Read the help for ?mpg to find out.
+?mpg
+```
+
+drv describes the type of drive train, where f = front-wheel drive, r = rear wheel drive, 4 = 4wd
+
+```{r}
+# 4. What happens if you make a scatterplot of class vs drv? Why is the plot not useful?
+ggplot(mpg)+
+  geom_point(aes(x=class,y=drv))
+```
+
+The plot is not useful because single dot doesn't show the amount of cars that have same type of drive train and same class. This is because class and drv are all categorical variables. We need to use other graphs to show the density and then discover some findings.
+
+
+## 2.2
+
+```{r}
+# 1. Describe how the <chr>, <int> and <dbl> variable types map to whether a variable is categorical versus continuous
+?mpg
+print(mpg)
+```
+<chr> stands for character which store strings and characters. <chr> can map to categorical variable. <int> stands for integer and <dbl> stands for double. Both are used to store numbers. Therefore, <int> and <dbl> can map to continuous variable.
+
+```{r}
+# 2. Graph the following two scatter plots.
+# Graph 1
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = hwy, y = cty, color = year))
+# Graph 2
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = hwy, y = cty, color = as.character(year)))
+```
+
+Why are the two graphs different?  
+**Because graph 1 uses year as a continuous variable and graph 2 use year as a categorical variable. The only difference between two graphs is the legend.**  
+Which graph is a better representation of the data?  
+**Graph 2 is a better representation of mpg dataset. It is because there are only two values in variable 'year' and no need to convert them to categorical variable.**
+
+```{r}
+# 3. What happens if you map an aesthetic to something other than a variable name, like aes(color = displ < 5)?
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = hwy, y = cty, color = displ < 5))
+```
+
+**The color will depend on whether engine displacement is smaller than 5. Those cars that engine displacement is smaller than 5(TRUE) are green dots, those cars that is no less than 5(FALSE) are red dots.**
+
+```{r}
+# 4. *Common bugs: What’s gone wrong with this code? Fix the code so the points are blue.
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = displ, y = hwy),color = "blue")
+```
+
+**It is wrong to put the color="blue" code into the aes() code. aes() code controls the mapping and the color of different points according to class, not the color of the whole graph. This bug can be solved if we take color setting code color="blue" out and put into the geom_point().**
+
+
+## 2.3
+
+```{r}
+# 1. Make the following plots
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = displ, y = hwy)) +
+facet_grid(cols = vars(drv))
+
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = displ, y = hwy)) +
+facet_grid(rows = vars(year))
+
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = displ, y = hwy)) +
+facet_grid(rows = vars(year), cols = vars(drv))
+
+```
+
+How does facet_grid() decide the layout of the grid?  
+**facet_grid() separates the graph by row or column. We can see how data(x variable and y variable) varies on specific values of variable(variable in facet_grid) and find the relationship. facet_grid(cols = vars(drv)) shows the distribution of hwy and displ on different types of drive train. facet_grid(rows = vars(year)) shows the distribution of hwy and displ on different years. facet_grid(rows = vars(year), cols = vars(drv)) shows the distribution of hwy and displ on different year and different types of drive train.**
+
+```{r}
+# 2. What happens if you facet on a continuous variable? Provide an example.
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = displ, y = hwy)) +
+facet_grid(cols = vars(cty))
+```
+
+The continuous variable will be converted to a categorical variable and the graph. will be showed in many facets as this continuous variable has different values. There maybe too many categories and it is hard to see the data distribution clearly.
+
+```{r}
+# 3. Reproduce the following graph (hint: theme(axis.text = element_text(size = 16)) makes the axis labels large).
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = class, y = hwy,color=class)) +
+facet_grid(rows = vars(year))+
+theme(axis.text = element_text(size = 16))
+```
+```{r}
+# 4. The x-axis labels for class on the plot may really hard to read! Can you rotate the labels by 45 degrees so that they don’t overlap one another? This would be a good time to use google. Include ggplot in your search to get more relevant answers. Remember to cite any code gathered from the internet.
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = class, y = hwy,color=class)) +
+facet_grid(rows = vars(year))+
+theme(axis.text = element_text(size = 16),axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5))
+# https://stackoverflow.com/questions/1330989/rotating-and-spacing-axis-labels-in-ggplot2 
+```
+```{r}
+# 5. *Reproduce the following graph. Why are so many manufacturers missing?
+ggplot(data = mpg) +
+geom_point(mapping = aes(x = displ, y = hwy,shape=manufacturer)) +
+facet_grid(cols=vars(drv),rows = vars(year))
+```
+
+Because the shape palette can only deal with a maximum of 6 discrete values.  
+More than 6 becomes difficult to discriminate. There are 15 discrete values in manufacturer.
+
+## 2.4
+
+1. What geom would you use to draw a line chart? A boxplot? A histogram? An area chart?  
+A line chart: geom_line(), geom_path()  
+A boxplot: geom_boxplot  
+A histogram: geom_histogram()  
+An area chart: geom_area()  
+Citation: https://r-graph-gallery.com/136-stacked-area-chart
+
+```{r}
+# 2. Will these two graphs look different? Why/why not?
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+geom_point() +
+geom_smooth(se = FALSE)
+
+ggplot() +
+geom_point(data = mpg, mapping = aes(x = displ, y = hwy)) +
+geom_smooth(data = mpg, mapping = aes(x = displ, y = hwy), se = FALSE)
+```
+
+Yes. These two graphs look similar. Because the code of first graph is just the brief version of the second. They use same dataset and same mapping rule with same geom.
+
+```{r}
+# 3. You are investigating the connection between city gas mileage and car characteristics in your role as a policy analyst for a climate change organization. Write code to make this graph.
+ggplot(data = mpg, mapping = aes(x = displ, y = cty)) +
+geom_point(aes(color=drv)) +
+geom_smooth(se = FALSE)
+```
+```{r}
+# 4. Make these changes. Are all four changes improvements? Which change made the plot worse and why?
+ggplot(data = mpg, mapping = aes(x = displ, y = cty)) +
+geom_point(aes(color=drv)) +
+  labs(x = "Engine Displacement, in litres", y="City Miles per gallon",title=" City gas mileage influenced by engine displacement and \n type of drive train")+
+geom_smooth(se = FALSE,color="black")+
+  theme(legend.position="none")
+# https://www.statology.org/remove-legend-ggplot2/
+# https://ggplot2.tidyverse.org/reference/labs.html
+# https://stackoverflow.com/questions/2631780/r-ggplot2-can-i-set-the-plot-title-to-wrap-around-and-shrink-the-text-to-fit-t
+```
+
+No. Four changes are not all improvements. Removing the legend made the plot worse. It makes color of dots seem confused. Viewers don't know the relationship between type of drive train and city miles or engine displacement.
+
+## 2.4.1
+
+1. What does geom_col() do? How is it different from geom_bar()?  
+**geom_col() is used to draw a bar chart. The method to draw the height is different between geom_col() and geom_bar(). geom_col() uses the real value in data as the height of bar. geom_bar() uses the relative height to draw the bar. The height of bar is proportional to the number of cases in each group.**  
+Cited from R documentation.
+
+```{r}
+# 2. Plot ggplot(data=mpg, aes(x=hwy)) + geom_bar(). Replace the geom with a stat to make the same graph.
+ggplot(data=mpg, aes(x=hwy)) + geom_bar()
+ggplot(data=mpg, aes(x=hwy)) + stat_count()
+```
+3. Which 4 variables does stat_smooth() compute?  
+**y(predicted value), standard error, ymax(upper limit of confidence interval) and ymin(lower limit of confidence interval).**  
+
+How are these variables displayed on a graph made with geom_smooth()?  
+**y is displayed by the regression line which is the blue line. The shaded ares displays the confidence interval and standard error. The upper bond of shaded area is ymax(y_mean+t*se), the lower bond of shaded area is ymin(y_mean-t*se). **  
+
+What parameters (i.e. inputs to the function) control its behaviour?  
+**According to R documentation, method, se, formula control stat_smooth() behavior. method controls the smoothing function to use(lm or glm...). se controls whether display confidence interval around smooth. formula controls the formula used in smoothing function(y~x or y~log(x)...). **
+
+4. Most geoms and stats come in pairs. Read through the documentation and make a list of 5 pairs. Notice the ggplot syntax helps you to understand when a geom and a stat go together.  
+geom_smooth() and stat_smooth()  
+geom_bar() and stat_count()  
+geom_count() and stat_sum()  
+geom_density() and stat_density()  
+geom_boxplot() and stat_boxplot()  
+Citation: https://ggplot2.tidyverse.org/reference/
+
+
+```{r}
+# 5. In our proportion bar chart, we need to set group = 1. Why do we need to specify this? If we didn’t specify this, what denominator would ggplot use by default?
+ggplot(data = diamonds) +
+geom_bar(mapping = aes(x = cut, y = ..prop..,group=1))
+```
+
+**Because we want to see the proportion each level of cut relative of all levels of cut. By specifying group, ggplot use the sum of all levels (Fair+Good+Very Good+Premium+Ideal) as denominator. If we didn’t specify this, ggplot would use  the total number in each level of as denominator separately by default, therefore all proportions of each level(row) would be 1.**
+
+
+## 2.5
+```{r}
+# 1. What is the problem with this plot? How could you improve it?
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+geom_point() 
+```
+
+This plot has an overplotting problem which we cannot know where most cars are when they have same hwy and cty values. We can improve it by three solutions. We can use geom_jitter(), geom_count() or geom_point(,alpha=) to displace geom_point().
+
+```{r}
+# First solution
+ggplot(mpg) +
+geom_jitter(aes(x = displ, y = hwy))
+# Second solution
+ggplot(mpg) +
+geom_point(aes(x = displ, y = hwy),alpha = 0.25)
+# Third solution
+ggplot(mpg) +
+geom_count(aes(x = displ, y = hwy))
+```
+
+```{r}
+# 2. Compare and contrast geom_jitter() with geom_count(). Use vocabulary from the “grammar of graphics” (see section headings) to support your argument.
+ggplot(mpg) +
+geom_jitter(aes(x = displ, y = hwy))
+
+ggplot(mpg) +
+geom_count(aes(x = displ, y = hwy))
+```
+
+geom_jitter() and geom_count() both clarify the data with same values in two or more rows, but they use different method.geom_jitter() accurately displays data with same values by drawing all of them with little deviation. geom_count() uses the size of point to show the amount of data with same values. The larger the point, the more the cars which have same displ and hwy.  
+
+ggplot2 implements a layered grammar of graphics. All graphs will share a similar structure. Layers are related to one another and share common features. We can see from geom_jitter() and geom_count() that, they share similar structure and achieve same effects through different way.
+
+```{r}
+# 3. *What’s the default position adjustment for geom_bar()? What did we add to the code to change the default behavior of geom_bar?
+ggplot(data = diamonds) +
+geom_bar(mapping = aes(x = cut, y = ..prop..,group=color,fill=color),position='dodge')
+# https://stackoverflow.com/questions/17402967/color-the-control-group-using-geom-bar-in-r
+```
+
+**The default position adjustment for geom_bar() is position='stack'. We need to add position='dodge' to change the default behavior which change stacks to vertical columns.**
+
+## 2.6
+
+```{r}
+# 1. What happens when you use coord_flip()?
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy))+
+  geom_point() +
+  coord_flip()
+
+# ggplot(mpg, aes(manufacturer)) + geom_bar()
+```
+
+**coord_flip() exchanges x-axis and y-axis. It makes horizontal become vertical, and vertical become horizontal.**
+
+```{r}
+# 2. What does the plot below tell you about the relationship between city and highway mpg? What does geom_abline() do?  Why is coord_fixed() important? (Hint: The effect will be more apparent if you make the plot in the console (not Rmd) and then drag the edges of the plot window to resize the graph.)
+
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+geom_point() +
+geom_abline() +
+coord_fixed()
+
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+geom_point() +
+geom_abline()
+```
+
+The plot tells us highway mpg is always greater than city mpg. 
+
+geom_abline() adds a reference lines with slope=1 to the plot.It helps us to see the relationship between x variable and y variable more clearly.
+
+coord_fixed() is important because it makes the scale coordinate system fixed. In this case, we fixed ratio=1 to represent one unit on the y-axis equivalent to one unit on the x-axis. It makes the graph more clear and easy to observe the relationship between x and y.
+
+
+
